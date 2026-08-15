@@ -1,0 +1,260 @@
+name: Sync upstream pstack
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 8 * * 1"
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pstack-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out default branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Test synchronization automation
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Generate from upstream
+        run: >-
+          python3 scripts/sync_upstream.py
+          --report-json "$RUNNER_TEMP/pstack-sync-report.json"
+
+      - name: Test synchronized output
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Validate generated Agent Skills
+        run: python3 scripts/validate_skills.py skills
+
+      - name: Verify generated artifact lock
+        run: python3 scripts/verify_lock.py
+
+      - name: Confirm default branch did not advance
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          git fetch --no-tags origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$DEFAULT_BRANCH")" ]; then
+            echo "Default branch advanced during synchronization; rerun from its new head" >&2
+            exit 1
+          fi
+
+      - name: Detect desired changes from default branch
+        id: changes
+        shell: bash
+        run: |
+          if git diff --quiet -- skills upstream.lock.json LICENSE \
+            && test -z "$(git ls-files --others -- skills upstream.lock.json LICENSE)"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Find repository-owned synchronization pull request
+        id: existing_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_BRANCH: automation/sync-pstack
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          number=$(gh pr list --state open --head "$SYNC_BRANCH" --base "$DEFAULT_BRANCH" --app github-actions --limit 100 \
+            --json number,baseRefName,headRefName,headRepositoryOwner,isCrossRepository \
+            --jq ".[] | select(.baseRefName == \"$DEFAULT_BRANCH\" and .headRefName == \"$SYNC_BRANCH\" and .headRepositoryOwner.login == \"$GITHUB_REPOSITORY_OWNER\" and (.isCrossRepository | not)) | .number" \
+            | head -1)
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Render pull-request body
+        if: steps.changes.outputs.changed == 'true'
+        run: >-
+          python3 scripts/render_sync_report.py
+          "$RUNNER_TEMP/pstack-sync-report.json"
+          "$RUNNER_TEMP/pstack-sync-pr.md"
+
+      - name: Reconcile synchronization branch
+        id: reconcile
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          SYNC_BRANCH: automation/sync-pstack
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          current_default=$(git rev-parse "origin/$DEFAULT_BRANCH")
+          if [ "$(git rev-parse HEAD)" != "$current_default" ]; then
+            echo "Default branch advanced during synchronization; rerun against $current_default" >&2
+            exit 1
+          fi
+          remote_sha=$(git ls-remote --heads origin "refs/heads/$SYNC_BRANCH" | awk '{print $1}')
+          if [ -n "$remote_sha" ]; then
+            git fetch --no-tags origin "+refs/heads/$SYNC_BRANCH:refs/remotes/origin/$SYNC_BRANCH"
+            fetched_sha=$(git rev-parse "origin/$SYNC_BRANCH")
+            if [ "$fetched_sha" != "$remote_sha" ]; then
+              echo "Synchronization branch changed during fetch; rerun from its new head" >&2
+              exit 1
+            fi
+          fi
+          git add -f -- skills upstream.lock.json LICENSE
+          managed_branch=false
+          base_current=false
+          if [ -n "$remote_sha" ]; then
+            parent_fields=$(git rev-list --parents -n 1 "$remote_sha" | awk '{print NF}')
+            author_email=$(git show -s --format=%ae "$remote_sha")
+            committer_email=$(git show -s --format=%ce "$remote_sha")
+            subject=$(git show -s --format=%s "$remote_sha")
+            if [ "$parent_fields" -eq 2 ] \
+              && [ "$author_email" = "41898282+github-actions[bot]@users.noreply.github.com" ] \
+              && [ "$committer_email" = "41898282+github-actions[bot]@users.noreply.github.com" ] \
+              && [ "$subject" = "sync: update upstream pstack" ]; then
+              remote_parent=$(git rev-parse "$remote_sha^")
+              managed_branch=true
+              while IFS= read -r path; do
+                case "$path" in
+                  LICENSE|upstream.lock.json|skills/*) ;;
+                  *) managed_branch=false ;;
+                esac
+              done < <(git diff --name-only "$remote_parent" "$remote_sha")
+              if [ "$remote_parent" = "$current_default" ]; then
+                base_current=true
+              fi
+            fi
+            if [ "$managed_branch" != "true" ]; then
+              echo "Refusing to overwrite unrecognized branch $SYNC_BRANCH at $remote_sha" >&2
+              exit 1
+            fi
+          fi
+          if [ "$base_current" = "true" ] && git diff --cached --quiet "origin/$SYNC_BRANCH" -- skills upstream.lock.json LICENSE; then
+            latest_sync=$(git ls-remote --heads origin "refs/heads/$SYNC_BRANCH" | awk '{print $1}')
+            if [ "$latest_sync" != "$remote_sha" ]; then
+              echo "Synchronization branch changed during reconciliation; rerun" >&2
+              exit 1
+            fi
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            echo "head_sha=$remote_sha" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git switch -C "$SYNC_BRANCH"
+          git commit -m "sync: update upstream pstack"
+          head_sha=$(git rev-parse HEAD)
+          latest_default=$(git ls-remote --heads origin "refs/heads/$DEFAULT_BRANCH" | awk '{print $1}')
+          if [ "$latest_default" != "$current_default" ]; then
+            echo "Default branch advanced before push; rerun against $latest_default" >&2
+            exit 1
+          fi
+          if [ -n "$remote_sha" ]; then
+            git push --force-with-lease="refs/heads/$SYNC_BRANCH:$remote_sha" origin "HEAD:$SYNC_BRANCH"
+          else
+            git push --force-with-lease="refs/heads/$SYNC_BRANCH:" origin "HEAD:$SYNC_BRANCH"
+          fi
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update synchronization pull request
+        id: sync_pr
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.existing_pr.outputs.number }}
+          EXPECTED_HEAD: ${{ steps.reconcile.outputs.head_sha }}
+          SYNC_BRANCH: automation/sync-pstack
+        shell: bash
+        run: |
+          remote_sha=$(git ls-remote --heads origin "refs/heads/$SYNC_BRANCH" | awk '{print $1}')
+          if [ -z "$EXPECTED_HEAD" ] || [ "$remote_sha" != "$EXPECTED_HEAD" ]; then
+            echo "Refusing to update a PR for a synchronization branch that changed after reconciliation" >&2
+            exit 1
+          fi
+          if [ -n "$NUMBER" ]; then
+            gh pr edit "$NUMBER" --title "sync: update upstream pstack" --body-file "$RUNNER_TEMP/pstack-sync-pr.md"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          else
+            gh pr create --head "automation/sync-pstack" --base "${{ github.event.repository.default_branch }}" --title "sync: update upstream pstack" --body-file "$RUNNER_TEMP/pstack-sync-pr.md"
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch validation for synchronization head
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: ${{ steps.reconcile.outputs.head_sha }}
+          SYNC_BRANCH: automation/sync-pstack
+        shell: bash
+        run: |
+          remote_sha=$(git ls-remote --heads origin "refs/heads/$SYNC_BRANCH" | awk '{print $1}')
+          if [ "$remote_sha" != "$EXPECTED_HEAD" ]; then
+            echo "Synchronization branch changed before validation dispatch; rerun" >&2
+            exit 1
+          fi
+          gh workflow run test.yml --ref "$SYNC_BRANCH"
+
+      - name: Close stale synchronization pull request
+        if: steps.changes.outputs.changed == 'false' && steps.existing_pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.existing_pr.outputs.number }}
+          SYNC_BRANCH: automation/sync-pstack
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          git fetch --no-tags origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$DEFAULT_BRANCH")" ]; then
+            echo "Default branch advanced before stale-PR cleanup; rerun from its new head" >&2
+            exit 1
+          fi
+          remote_sha=$(git ls-remote --heads origin "refs/heads/$SYNC_BRANCH" | awk '{print $1}')
+          pr_sha=$(gh pr view "$NUMBER" --json headRefOid --jq .headRefOid)
+          if [ -z "$remote_sha" ] || [ "$remote_sha" != "$pr_sha" ]; then
+            echo "Refusing to close PR $NUMBER because its head is missing or changed" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin "+refs/heads/$SYNC_BRANCH:refs/remotes/origin/$SYNC_BRANCH"
+          fetched_sha=$(git rev-parse "origin/$SYNC_BRANCH")
+          if [ "$fetched_sha" != "$remote_sha" ]; then
+            echo "Refusing stale-PR cleanup because the branch changed during fetch" >&2
+            exit 1
+          fi
+          parent_fields=$(git rev-list --parents -n 1 "$remote_sha" | awk '{print NF}')
+          author_email=$(git show -s --format=%ae "$remote_sha")
+          committer_email=$(git show -s --format=%ce "$remote_sha")
+          subject=$(git show -s --format=%s "$remote_sha")
+          managed_branch=false
+          if [ "$parent_fields" -eq 2 ] \
+            && [ "$author_email" = "41898282+github-actions[bot]@users.noreply.github.com" ] \
+            && [ "$committer_email" = "41898282+github-actions[bot]@users.noreply.github.com" ] \
+            && [ "$subject" = "sync: update upstream pstack" ]; then
+            remote_parent=$(git rev-parse "$remote_sha^")
+            managed_branch=true
+            while IFS= read -r path; do
+              case "$path" in
+                LICENSE|upstream.lock.json|skills/*) ;;
+                *) managed_branch=false ;;
+              esac
+            done < <(git diff --name-only "$remote_parent" "$remote_sha")
+          fi
+          if [ "$managed_branch" != "true" ]; then
+            echo "Refusing to close PR $NUMBER for an unrecognized synchronization branch" >&2
+            exit 1
+          fi
+          latest_remote=$(git ls-remote --heads origin "refs/heads/$SYNC_BRANCH" | awk '{print $1}')
+          latest_pr=$(gh pr view "$NUMBER" --json headRefOid --jq .headRefOid)
+          if [ "$latest_remote" != "$remote_sha" ] || [ "$latest_pr" != "$remote_sha" ]; then
+            echo "Refusing stale-PR cleanup because its head changed during validation" >&2
+            exit 1
+          fi
+          gh pr close "$NUMBER" \
+            --comment "Closing because the current upstream port matches the default branch. The reserved branch is retained for safe reuse."

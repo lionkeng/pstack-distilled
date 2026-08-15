@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "literal": [
+    {
+      "from": "Cursor's `/loop` command",
+      "to": "the host's recurring-run capability"
+    },
+    {
+      "from": "under `/loop`",
+      "to": "using the host's recurring-run capability"
+    },
+    {
+      "from": "~/.cursor/rules/pstack-models.mdc",
+      "to": ".pstack/models.md"
+    },
+    {
+      "from": "~/.cursor/skills/",
+      "to": "<user-skill-directory>/"
+    },
+    {
+      "from": ".cursor/skills/",
+      "to": "<project-skill-directory>/"
+    },
+    {
+      "from": "~/.cursor/plugins/",
+      "to": "<host-plugin-directory>/"
+    },
+    {
+      "from": "~/.cursor/projects/*/",
+      "to": "<host-project-history-root>/"
+    },
+    {
+      "from": "~/.cursor/projects/<slug>/agent-transcripts/<uuid>/<uuid>.jsonl",
+      "to": "<host-conversation-history>/<conversation-id>.jsonl"
+    },
+    {
+      "from": ".cursor/worktrees/",
+      "to": "<host-worktree-directory>/"
+    },
+    {
+      "from": "/tmp/",
+      "to": "<host-temp-directory>/"
+    },
+    {
+      "from": "~/Library/Application Support/Cursor",
+      "to": "the host's application-support directory"
+    },
+    {
+      "from": "agent-transcripts/",
+      "to": "<host-conversation-history>/"
+    },
+    {
+      "from": "<agent-transcripts>",
+      "to": "<host-conversation-history>"
+    },
+    {
+      "from": "cursor-team-kit",
+      "to": "optional companion tooling"
+    },
+    {
+      "from": "Cursor cloud agent",
+      "to": "remote delegated worker"
+    },
+    {
+      "from": "Cursor cloud agents",
+      "to": "remote delegated workers"
+    },
+    {
+      "from": "Cursor dashboard",
+      "to": "host task dashboard"
+    },
+    {
+      "from": "Cursor restart",
+      "to": "host restart"
+    },
+    {
+      "from": "restart Cursor",
+      "to": "restart the host"
+    },
+    {
+      "from": "Cursor's",
+      "to": "the host's"
+    },
+    {
+      "from": "Cursor",
+      "to": "the host"
+    },
+    {
+      "from": "`AskQuestion`",
+      "to": "the host's structured user-interaction capability"
+    },
+    {
+      "from": "AskQuestion",
+      "to": "the host's user-interaction capability"
+    },
+    {
+      "from": "AskUserQuestion",
+      "to": "the host's user-interaction capability"
+    },
+    {
+      "from": "`Task` tool",
+      "to": "the host's delegation capability"
+    },
+    {
+      "from": "Task tool",
+      "to": "host delegation capability"
+    },
+    {
+      "from": "`Task` calls",
+      "to": "delegation calls"
+    },
+    {
+      "from": "`Task` call",
+      "to": "delegation call"
+    },
+    {
+      "from": "`Task` response body",
+      "to": "delegated worker's response"
+    },
+    {
+      "from": "`Task` prompts",
+      "to": "delegated-worker prompts"
+    },
+    {
+      "from": "`Task`",
+      "to": "the delegation capability"
+    },
+    {
+      "from": "subagent_type",
+      "to": "worker role"
+    },
+    {
+      "from": "generalPurpose",
+      "to": "general-purpose"
+    },
+    {
+      "from": "run_in_background: true",
+      "to": "run concurrently when supported"
+    },
+    {
+      "from": "environment: \"cloud\"",
+      "to": "execution environment: remote when supported"
+    },
+    {
+      "from": "environment: \"local\"",
+      "to": "execution environment: local"
+    },
+    {
+      "from": "claude-fable-5-thinking-max",
+      "to": "judgment-model"
+    },
+    {
+      "from": "gpt-5.6-sol-max",
+      "to": "deep-code-model"
+    },
+    {
+      "from": "grok-4.6-fast-xhigh",
+      "to": "fast-code-model"
+    },
+    {
+      "from": "claude-opus-5-thinking-xhigh",
+      "to": "independent-review-model"
+    },
+    {
+      "from": "gpt-4o",
+      "to": "available-multimodal-model"
+    },
+    {
+      "from": "gpt-4",
+      "to": "available-model"
+    },
+    {
+      "from": "/loop",
+      "to": "recurring-run capability"
+    },
+    {
+      "from": "an always-applied rule",
+      "to": "a shared configuration file"
+    },
+    {
+      "from": "always-applied rule",
+      "to": "shared configuration file"
+    },
+    {
+      "from": "always-applied",
+      "to": "shared"
+    },
+    {
+      "from": "alwaysApply: true",
+      "to": "schema-version: 1"
+    },
+    {
+      "from": "todolist",
+      "to": "plan or checklist"
+    },
+    {
+      "from": "@cursor-skill/poteto-mode-tools",
+      "to": "@pstack-distilled/poteto-mode-tools"
+    }
+  ]
+}
