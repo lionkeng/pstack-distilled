@@ -468,9 +468,72 @@ description: Broken alpha. Use when alpha is in scope.
         current = json.loads(lock_path.read_text(encoding="utf-8"))
         self.assertEqual(current["source"]["commit"], self.v1_commit)
 
+    def test_packaged_plugin_version_bumps_only_when_skills_change(self) -> None:
+        manifest = self.downstream / ".claude-plugin" / "plugin.json"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(
+            json.dumps({"name": "pstack", "version": "0.1.0", "keywords": ["skills"]}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        report = self.root / "report.json"
+
+        first = self._sync(report=report)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["version"], "0.1.1")
+        self.assertEqual(json.loads(report.read_text(encoding="utf-8"))["output"]["plugin_version"], "0.1.1")
+
+        second = self._sync()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertIn("already synchronized", second.stdout)
+        self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["version"], "0.1.1")
+
+        self._write(
+            "pstack/skills/beta/SKILL.md",
+            """---
+name: beta
+description: Explain revised beta behavior. Use when beta is in scope.
+---
+
+# Beta
+
+Revised portable content.
+""",
+        )
+        self._commit_upstream("upstream v2")
+        third = self._sync()
+        self.assertEqual(third.returncode, 0, third.stderr)
+        self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["version"], "0.1.2")
+        self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["keywords"], ["skills"])
+
+    def test_unbumpable_plugin_version_fails_without_mutation(self) -> None:
+        first = self._sync()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        manifest = self.downstream / ".claude-plugin" / "plugin.json"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(json.dumps({"name": "pstack", "version": "0.1"}) + "\n", encoding="utf-8")
+        before = self._snapshot_downstream()
+
+        self._write(
+            "pstack/skills/beta/SKILL.md",
+            """---
+name: beta
+description: Explain revised beta behavior. Use when beta is in scope.
+---
+
+# Beta
+
+Revised portable content.
+""",
+        )
+        self._commit_upstream("upstream v2")
+        result = self._sync()
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn("MAJOR.MINOR.PATCH", result.stderr)
+        self.assertEqual(self._snapshot_downstream(), before)
+
 
 class ApplyTransactionTest(unittest.TestCase):
-    def test_write_failure_restores_skills_license_and_lock_together(self) -> None:
+    def test_write_failure_restores_skills_license_lock_and_plugin_together(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pstack-transaction-test-") as temporary:
             root = Path(temporary)
             repo = root / "repo"
@@ -479,6 +542,9 @@ class ApplyTransactionTest(unittest.TestCase):
             (output / "old.txt").write_text("old skills\n", encoding="utf-8")
             (repo / "LICENSE").write_text("old license\n", encoding="utf-8")
             (repo / "upstream.lock.json").write_text("old lock\n", encoding="utf-8")
+            plugin = repo / ".claude-plugin" / "plugin.json"
+            plugin.parent.mkdir(parents=True)
+            plugin.write_text("old plugin\n", encoding="utf-8")
             staged = root / "staged-skills"
             staged.mkdir()
             (staged / "new.txt").write_text("new skills\n", encoding="utf-8")
@@ -486,13 +552,13 @@ class ApplyTransactionTest(unittest.TestCase):
             transaction.mkdir()
             original_write_atomic = sync_module._write_atomic
 
-            def fail_on_lock(path: Path, content: bytes) -> None:
-                if path == repo / "upstream.lock.json":
-                    raise OSError("injected lock write failure")
+            def fail_on_plugin(path: Path, content: bytes) -> None:
+                if path == plugin:
+                    raise OSError("injected plugin write failure")
                 original_write_atomic(path, content)
 
-            with mock.patch.object(sync_module, "_write_atomic", side_effect=fail_on_lock):
-                with self.assertRaisesRegex(OSError, "injected lock write failure"):
+            with mock.patch.object(sync_module, "_write_atomic", side_effect=fail_on_plugin):
+                with self.assertRaisesRegex(OSError, "injected plugin write failure"):
                     sync_module._apply_transaction(
                         repo_root=repo,
                         output_path=Path("skills"),
@@ -503,6 +569,8 @@ class ApplyTransactionTest(unittest.TestCase):
                         lock_bytes=b"new lock\n",
                         skills_changed=True,
                         transaction_root=transaction,
+                        plugin_path=Path(".claude-plugin/plugin.json"),
+                        plugin_bytes=b"new plugin\n",
                     )
 
             self.assertEqual((output / "old.txt").read_text(encoding="utf-8"), "old skills\n")
@@ -511,6 +579,7 @@ class ApplyTransactionTest(unittest.TestCase):
             self.assertEqual(
                 (repo / "upstream.lock.json").read_text(encoding="utf-8"), "old lock\n"
             )
+            self.assertEqual(plugin.read_text(encoding="utf-8"), "old plugin\n")
 
 
 if __name__ == "__main__":

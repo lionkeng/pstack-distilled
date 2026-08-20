@@ -22,9 +22,14 @@ def render(report: Mapping[str, object]) -> str:
         "",
         f"- Upstream: `{source['repository']}` at `{source['commit']}`",
         f"- Previous: `{previous}`",
-        f"- Plugin version: `{source['plugin_version']}`",
+        f"- Upstream plugin version: `{source['plugin_version']}`",
         f"- Portable skills: `{output['skill_count']}`",
         f"- Output digest: `{output['sha256']}`",
+    ]
+    packaged_version = output.get("plugin_version")
+    if packaged_version:
+        lines.append(f"- Packaged plugin version: `{packaged_version}`")
+    lines += [
         "",
         "The workflow fetched upstream ephemerally, converted the skills, ran the offline",
         "sync tests, and validated the complete Agent Skills output. Upstream scripts were",

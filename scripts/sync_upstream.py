@@ -31,6 +31,8 @@ class SyncError(RuntimeError):
 
 GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+PLUGIN_VERSION_RE = re.compile(r'("version"\s*:\s*)"([^"\\]*)"')
 
 
 def _run(command: Sequence[str], cwd: Path) -> str:
@@ -257,23 +259,55 @@ def _locked_commit_matches_source(
     return locked_tree == source["tree"] and locked_skills_tree == source["skills_tree"]
 
 
+def _bump_patch(version: str) -> str:
+    match = SEMVER_RE.match(version)
+    if not match:
+        raise SyncError(f"packaged plugin version must be MAJOR.MINOR.PATCH to bump: {version!r}")
+    major, minor, patch = (int(part) for part in match.groups())
+    return f"{major}.{minor}.{patch + 1}"
+
+
+def _plugin_candidate(path: Path, skills_changed: bool) -> Optional[Tuple[bytes, str]]:
+    """Return the manifest bytes and version to publish, bumping the patch when skills changed."""
+    if path.is_symlink():
+        raise SyncError(f"{path}: packaged plugin manifest cannot be a symlink")
+    if not path.is_file():
+        return None
+    raw = path.read_text(encoding="utf-8")
+    try:
+        manifest = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise SyncError(f"{path}: packaged plugin manifest is not valid JSON: {exc}") from exc
+    if not isinstance(manifest, Mapping):
+        raise SyncError(f"{path}: packaged plugin manifest must be a JSON object")
+    version = manifest.get("version")
+    if not isinstance(version, str) or not version:
+        raise SyncError(f"{path}: packaged plugin version must be a non-empty string")
+    if not skills_changed:
+        return raw.encode("utf-8"), version
+    matches = PLUGIN_VERSION_RE.findall(raw)
+    if len(matches) != 1 or matches[0][1] != version:
+        raise SyncError(f"{path}: expected exactly one top-level version string to bump")
+    bumped = _bump_patch(version)
+    rewritten = PLUGIN_VERSION_RE.sub(lambda match: f'{match.group(1)}"{bumped}"', raw, count=1)
+    return rewritten.encode("utf-8"), bumped
+
+
 def _candidate_snapshot(
     repo_root: Path,
     output_path: Path,
-    staged_output: Path,
-    license_path: Path,
-    license_bytes: bytes,
-    lock_path: Path,
-    lock_bytes: bytes,
+    old_skills: Mapping[str, Tuple[str, bytes]],
+    new_skills: Mapping[str, Tuple[str, bytes]],
+    scalar_files: Sequence[Tuple[Path, bytes]],
 ) -> Tuple[Dict[str, Tuple[str, bytes]], Dict[str, Tuple[str, bytes]]]:
     old: Dict[str, Tuple[str, bytes]] = {}
     new: Dict[str, Tuple[str, bytes]] = {}
-    for relative, value in _tree_snapshot(repo_root / output_path).items():
+    for relative, value in old_skills.items():
         old[(output_path / relative).as_posix()] = value
-    for relative, value in _tree_snapshot(staged_output).items():
+    for relative, value in new_skills.items():
         new[(output_path / relative).as_posix()] = value
 
-    for relative_path, candidate_bytes in ((license_path, license_bytes), (lock_path, lock_bytes)):
+    for relative_path, candidate_bytes in scalar_files:
         current = repo_root / relative_path
         if current.exists():
             mode = "100755" if current.stat().st_mode & 0o111 else "100644"
@@ -312,43 +346,43 @@ def _apply_transaction(
     lock_bytes: bytes,
     skills_changed: bool,
     transaction_root: Path,
+    plugin_path: Optional[Path] = None,
+    plugin_bytes: Optional[bytes] = None,
 ) -> None:
     output = repo_root / output_path
-    license_file = repo_root / license_path
-    lock_file = repo_root / lock_path
     backup_output = transaction_root / "backup-skills"
-    backup_license = transaction_root / "backup-license"
-    backup_lock = transaction_root / "backup-lock"
     output_existed = output.exists()
-    license_existed = license_file.exists()
-    lock_existed = lock_file.exists()
 
-    if license_existed:
-        shutil.copy2(license_file, backup_license)
-    if lock_existed:
-        shutil.copy2(lock_file, backup_lock)
+    writes: List[Tuple[str, Path, bytes, Path, bool]] = []
+    targets = [("license", license_path, license_bytes), ("lock", lock_path, lock_bytes)]
+    if plugin_path is not None and plugin_bytes is not None:
+        targets.append(("plugin", plugin_path, plugin_bytes))
+    for label, relative_path, content in targets:
+        target = repo_root / relative_path
+        backup = transaction_root / f"backup-{label}"
+        existed = target.exists()
+        if existed:
+            shutil.copy2(target, backup)
+        writes.append((label, target, content, backup, existed))
 
     try:
         if skills_changed:
             if output_existed:
                 os.replace(str(output), str(backup_output))
             os.replace(str(staged_output), str(output))
-        _write_atomic(license_file, license_bytes)
-        _write_atomic(lock_file, lock_bytes)
+        for _label, target, content, _backup, _existed in writes:
+            _write_atomic(target, content)
     except Exception:
         if skills_changed:
             if output.exists():
                 shutil.rmtree(output)
             if output_existed and backup_output.exists():
                 os.replace(str(backup_output), str(output))
-        if license_existed:
-            shutil.copy2(backup_license, license_file)
-        elif license_file.exists():
-            license_file.unlink()
-        if lock_existed:
-            shutil.copy2(backup_lock, lock_file)
-        elif lock_file.exists():
-            lock_file.unlink()
+        for _label, target, _content, backup, existed in writes:
+            if existed:
+                shutil.copy2(backup, target)
+            elif target.exists():
+                target.unlink()
         raise
 
 
@@ -371,6 +405,8 @@ def synchronize(
     output_path = _safe_relative(str(config["output"]), "output")
     lock_path = _safe_relative(str(config["lock"]), "lock")
     license_path = _safe_relative(str(config["license"]), "license")
+    plugin_config = config.get("plugin")
+    plugin_path = _safe_relative(str(plugin_config), "plugin") if plugin_config else None
     rewrites_path = (PROJECT_ROOT / _safe_relative(str(config["rewrites"]), "rewrites")).resolve()
     if not rewrites_path.is_file():
         raise SyncError(f"{rewrites_path}: rewrite configuration does not exist")
@@ -444,14 +480,26 @@ def synchronize(
             ):
                 candidate_lock = existing_lock  # Ignore upstream commits outside pstack.
             lock_bytes = _json_bytes(candidate_lock)
+            old_skills = _tree_snapshot(repo_root / output_path)
+            new_skills = _tree_snapshot(staged_output)
+            skills_changed = old_skills != new_skills
+            scalar_files: List[Tuple[Path, bytes]] = [
+                (license_path, license_bytes),
+                (lock_path, lock_bytes),
+            ]
+            plugin_bytes: Optional[bytes] = None
+            packaged_version: Optional[str] = None
+            if plugin_path is not None:
+                candidate_plugin = _plugin_candidate(repo_root / plugin_path, skills_changed)
+                if candidate_plugin is not None:
+                    plugin_bytes, packaged_version = candidate_plugin
+                    scalar_files.append((plugin_path, plugin_bytes))
             old_snapshot, new_snapshot = _candidate_snapshot(
                 repo_root,
                 output_path,
-                staged_output,
-                license_path,
-                license_bytes,
-                lock_path,
-                lock_bytes,
+                old_skills,
+                new_skills,
+                scalar_files,
             )
             changes = _classify_changes(old_snapshot, new_snapshot)
             changed = any(changes.values())
@@ -474,15 +522,11 @@ def synchronize(
                 "output": {
                     "skill_count": skill_count,
                     "sha256": output_digest,
+                    "plugin_version": packaged_version,
                 },
                 "changes": changes,
             }
             if changed and not check:
-                skills_changed = any(
-                    path == output_path.as_posix() or path.startswith(output_path.as_posix() + "/")
-                    for paths in changes.values()
-                    for path in paths
-                )
                 _apply_transaction(
                     repo_root,
                     output_path,
@@ -493,6 +537,8 @@ def synchronize(
                     lock_bytes,
                     skills_changed,
                     transaction,
+                    plugin_path=plugin_path if plugin_bytes is not None else None,
+                    plugin_bytes=plugin_bytes,
                 )
             return report
 

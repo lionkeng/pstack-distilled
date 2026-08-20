@@ -8,6 +8,7 @@
   "output": "skills",
   "lock": "upstream.lock.json",
   "license": "LICENSE",
+  "plugin": ".claude-plugin/plugin.json",
   "rewrites": "porting/rewrites.json"
 }
 
