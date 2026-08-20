@@ -203,7 +203,7 @@ def _same_source_tree(existing: Optional[Mapping[str, object]], candidate: Mappi
     if not all(isinstance(item, Mapping) for item in (existing_source, candidate_source, existing_output, candidate_output)):
         return False
     source_keys = ("repository", "ref", "path", "tree", "skills_tree", "plugin_version", "license_sha256")
-    output_keys = ("path", "sha256", "skill_count", "converter_sha256")
+    output_keys = ("path", "sha256", "skill_count", "converter_sha256", "license_sha256")
     return all(existing_source.get(key) == candidate_source.get(key) for key in source_keys) and all(
         existing_output.get(key) == candidate_output.get(key) for key in output_keys
     )
@@ -257,6 +257,23 @@ def _locked_commit_matches_source(
     except SyncError:
         return False
     return locked_tree == source["tree"] and locked_skills_tree == source["skills_tree"]
+
+
+def _derive_license(upstream_bytes: bytes, additional: Optional[str]) -> bytes:
+    """Ship upstream's license verbatim, with the derivative copyright line added."""
+    if not additional:
+        return upstream_bytes
+    text = upstream_bytes.decode("utf-8", errors="strict")
+    lines = text.split("\n")
+    if additional in lines:
+        return upstream_bytes
+    holders = [index for index, line in enumerate(lines) if line.startswith("Copyright (c) ")]
+    if len(holders) != 1:
+        raise SyncError(
+            f"upstream license must carry exactly one copyright line to extend, found {len(holders)}"
+        )
+    lines.insert(holders[0] + 1, additional)
+    return "\n".join(lines).encode("utf-8")
 
 
 def _bump_patch(version: str) -> str:
@@ -405,6 +422,9 @@ def synchronize(
     output_path = _safe_relative(str(config["output"]), "output")
     lock_path = _safe_relative(str(config["lock"]), "lock")
     license_path = _safe_relative(str(config["license"]), "license")
+    license_copyright = config.get("license_copyright")
+    if license_copyright is not None and not isinstance(license_copyright, str):
+        raise SyncError("license_copyright must be a string")
     plugin_config = config.get("plugin")
     plugin_path = _safe_relative(str(plugin_config), "plugin") if plugin_config else None
     rewrites_path = (PROJECT_ROOT / _safe_relative(str(config["rewrites"]), "rewrites")).resolve()
@@ -429,6 +449,7 @@ def synchronize(
         license_text = license_bytes.decode("utf-8", errors="strict")
         if not license_text.startswith("MIT License\n") or "Permission is hereby granted" not in license_text:
             raise SyncError("upstream pstack license is no longer recognizably MIT; review manually")
+        shipped_license_bytes = _derive_license(license_bytes, license_copyright)
 
         manifest_path = pstack_root / ".cursor-plugin" / "plugin.json"
         if manifest_path.is_symlink() or manifest_path.parent.is_symlink():
@@ -471,6 +492,7 @@ def synchronize(
                     "sha256": output_digest,
                     "skill_count": skill_count,
                     "converter_sha256": _converter_digest(rewrites_path),
+                    "license_sha256": _sha256_bytes(shipped_license_bytes),
                 },
             }
             if (
@@ -478,13 +500,14 @@ def synchronize(
                 and existing_lock is not None
                 and _locked_commit_matches_source(checkout, existing_lock, source_path, ref)
             ):
-                candidate_lock = existing_lock  # Ignore upstream commits outside pstack.
+                # Ignore upstream commits outside pstack, but never a stale output block.
+                candidate_lock = {**candidate_lock, "source": existing_lock["source"]}
             lock_bytes = _json_bytes(candidate_lock)
             old_skills = _tree_snapshot(repo_root / output_path)
             new_skills = _tree_snapshot(staged_output)
             skills_changed = old_skills != new_skills
             scalar_files: List[Tuple[Path, bytes]] = [
-                (license_path, license_bytes),
+                (license_path, shipped_license_bytes),
                 (lock_path, lock_bytes),
             ]
             plugin_bytes: Optional[bytes] = None
@@ -532,7 +555,7 @@ def synchronize(
                     output_path,
                     staged_output,
                     license_path,
-                    license_bytes,
+                    shipped_license_bytes,
                     lock_path,
                     lock_bytes,
                     skills_changed,

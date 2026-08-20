@@ -12,6 +12,14 @@ from unittest import mock
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+UPSTREAM_LICENSE = """MIT License
+
+Copyright (c) 2026 Upstream Author
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction.
+"""
 SYNC = PROJECT_ROOT / "scripts" / "sync_upstream.py"
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 import sync_upstream as sync_module  # noqa: E402
@@ -52,7 +60,7 @@ class SyncUpstreamTest(unittest.TestCase):
         path.write_text(content, encoding="utf-8")
 
     def _write_upstream_v1(self) -> None:
-        self._write("pstack/LICENSE", (PROJECT_ROOT / "LICENSE").read_text(encoding="utf-8"))
+        self._write("pstack/LICENSE", UPSTREAM_LICENSE)
         self._write(
             "pstack/.cursor-plugin/plugin.json",
             json.dumps({"name": "pstack", "version": "1.0.0", "license": "MIT"}) + "\n",
@@ -123,6 +131,10 @@ Report comments that should be removed.
 """,
         )
 
+    def _configured_copyright(self) -> str:
+        config = json.loads((PROJECT_ROOT / "sync-config.json").read_text(encoding="utf-8"))
+        return config["license_copyright"]
+
     def _commit_upstream(self, message: str) -> str:
         self._git(self.upstream, "add", "-A")
         self._git(self.upstream, "commit", "--quiet", "-m", message)
@@ -190,7 +202,11 @@ Report comments that should be removed.
         lock = json.loads((self.downstream / "upstream.lock.json").read_text(encoding="utf-8"))
         self.assertEqual(lock["source"]["commit"], self.v1_commit)
         self.assertEqual(lock["output"]["skill_count"], 3)
-        self.assertEqual((self.downstream / "LICENSE").read_bytes(), (PROJECT_ROOT / "LICENSE").read_bytes())
+        shipped = (self.downstream / "LICENSE").read_text(encoding="utf-8")
+        self.assertIn("Copyright (c) 2026 Upstream Author", shipped)
+        self.assertIn(self._configured_copyright(), shipped)
+        self.assertTrue(shipped.startswith("MIT License\n"))
+        self.assertIn("Permission is hereby granted", shipped)
         self.assertEqual(unrelated.read_text(encoding="utf-8"), "manual content\n")
         self.assertTrue(json.loads(report.read_text(encoding="utf-8"))["changed"])
         self.assertFalse(self.execution_sentinel.exists(), "synchronization executed an upstream script")
@@ -467,6 +483,45 @@ description: Broken alpha. Use when alpha is in scope.
         self.assertEqual(repaired.returncode, 0, repaired.stderr)
         current = json.loads(lock_path.read_text(encoding="utf-8"))
         self.assertEqual(current["source"]["commit"], self.v1_commit)
+
+    def test_shipped_license_keeps_both_copyright_holders(self) -> None:
+        result = self._sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        shipped = (self.downstream / "LICENSE").read_text(encoding="utf-8")
+        holders = [line for line in shipped.split("\n") if line.startswith("Copyright (c) ")]
+        self.assertEqual(holders, ["Copyright (c) 2026 Upstream Author", self._configured_copyright()])
+        lock = json.loads((self.downstream / "upstream.lock.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            lock["source"]["license_sha256"],
+            sync_module._sha256_bytes(UPSTREAM_LICENSE.encode("utf-8")),
+        )
+        self.assertEqual(
+            lock["output"]["license_sha256"],
+            sync_module._sha256_bytes(shipped.encode("utf-8")),
+        )
+        self.assertNotEqual(lock["source"]["license_sha256"], lock["output"]["license_sha256"])
+
+        second = self._sync()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertIn("already synchronized", second.stdout)
+        self.assertEqual((self.downstream / "LICENSE").read_text(encoding="utf-8"), shipped)
+
+    def test_ambiguous_upstream_license_is_rejected_without_mutation(self) -> None:
+        first = self._sync()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        before = self._snapshot_downstream()
+        self._write(
+            "pstack/LICENSE",
+            UPSTREAM_LICENSE.replace(
+                "Copyright (c) 2026 Upstream Author",
+                "Copyright (c) 2026 Upstream Author\nCopyright (c) 2026 Someone Else",
+            ),
+        )
+        self._commit_upstream("upstream relicense")
+        result = self._sync()
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn("exactly one copyright line", result.stderr)
+        self.assertEqual(self._snapshot_downstream(), before)
 
     def test_packaged_plugin_version_bumps_only_when_skills_change(self) -> None:
         manifest = self.downstream / ".claude-plugin" / "plugin.json"

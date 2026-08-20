@@ -1,13 +1,14 @@
 {
   "output": {
     "converter_sha256": "9c2379a69f423a3a33003fb4a952b24192236f61486202d696f34250bb63447f",
+    "license_sha256": "ca02f43bbef6fa4637cb34759b5a03a2c959e2f95b0395870f859eec03492d2a",
     "path": "skills",
     "sha256": "cc05c862d28d31dd461c627132f998af854431acd3b6a0673e2c9a1220523839",
     "skill_count": 44
   },
   "schema_version": 1,
   "source": {
-    "commit": "2a8044425c7bddf429c3bdedf3ab61e791d34d65",
+    "commit": "51a96e0dd838404da19ba83dc70aa21eef71f868",
     "license_sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
     "path": "pstack",
     "plugin_version": "0.14.1",

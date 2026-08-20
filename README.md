@@ -76,7 +76,10 @@ python3 scripts/verify_lock.py
 The sync script fetches upstream into a temporary sparse checkout and converts
 the skills. It validates the staged tree, updates this repository, and deletes
 the checkout. `upstream.lock.json` records the upstream commit, subtree, plugin
-version, license checksum, and output digest. When the generated skills change,
+version, license checksum, and output digest. `LICENSE` is generated too: the
+sync ships upstream's MIT text with the `license_copyright` line from
+`sync-config.json` added below upstream's holder, so do not hand-edit it — the
+next sync would overwrite the change. When the generated skills change,
 the sync bumps the patch version in `.claude-plugin/plugin.json` so anyone who
 installed the plugin sees an update. Put conversion rules in
 `porting/rewrites.json` or the conversion code.
@@ -101,6 +104,6 @@ branch. GitHub ignores push and pull_request triggers from that token.
 
 ## License and attribution
 
-pstack-distilled uses the same MIT License as upstream. The original copyright
-notice is in [`LICENSE`](LICENSE). See [`NOTICE.md`](NOTICE.md) for
-attribution. Each generated skill names its upstream source in `metadata`.
+pstack-distilled uses the same MIT License as upstream. [`LICENSE`](LICENSE)
+carries upstream's copyright notice and this distribution's, in that order. See
+[`NOTICE.md`](NOTICE.md) for attribution. Each generated skill names its upstream source in `metadata`.
