@@ -8,6 +8,8 @@
   "output": "skills",
   "lock": "upstream.lock.json",
   "license": "LICENSE",
+  "license_copyright": "Copyright (c) 2026 Keng Lim",
+  "plugin": ".claude-plugin/plugin.json",
   "rewrites": "porting/rewrites.json"
 }
 

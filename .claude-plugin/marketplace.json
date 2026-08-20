@@ -1,0 +1,14 @@
+{
+  "name": "pstack-distilled",
+  "description": "Engineering skills and playbooks distilled from Lauren Tan's pstack Cursor plugin into the standard Agent Skills specification.",
+  "owner": {
+    "name": "Keng Lim"
+  },
+  "plugins": [
+    {
+      "name": "pstack",
+      "source": "./",
+      "description": "Engineering skills and playbooks distilled from Lauren Tan's pstack Cursor plugin into the standard Agent Skills specification."
+    }
+  ]
+}

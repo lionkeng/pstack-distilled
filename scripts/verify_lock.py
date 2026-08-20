@@ -84,10 +84,10 @@ def verify_lock(repo_root: Path, config_path: Path) -> List[str]:
         errors.append(f"{license_file}: checked-in license must be a regular file")
     else:
         actual_license_digest = _sha256_bytes(license_file.read_bytes())
-        if source.get("license_sha256") != actual_license_digest:
+        if output.get("license_sha256") != actual_license_digest:
             errors.append(
                 f"license digest drift: {actual_license_digest} "
-                f"!= lock {source.get('license_sha256')}"
+                f"!= lock {output.get('license_sha256')}"
             )
 
     try:
