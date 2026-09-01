@@ -288,6 +288,31 @@ Changed upstream.
         self.assertIn("would update", check.stdout)
         self.assertEqual(self._snapshot_downstream(), before)
 
+    def test_folded_yaml_description_is_imported(self) -> None:
+        self._write(
+            "pstack/skills/folded/SKILL.md",
+            """---
+name: Folded Skill
+description: >-
+  Use when folding yaml descriptions
+  across several source lines.
+---
+
+# Folded
+
+Portable body.
+""",
+        )
+        self._commit_upstream("add folded description")
+        result = self._sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        generated = (self.downstream / "skills/folded/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn('name: "folded"', generated)
+        self.assertIn(
+            'description: "Use when folding yaml descriptions across several source lines."',
+            generated,
+        )
+
     def test_generated_shell_resources_parse(self) -> None:
         shell_scripts = sorted((PROJECT_ROOT / "skills").rglob("*.sh"))
         self.assertTrue(shell_scripts, "expected generated shell resources")
