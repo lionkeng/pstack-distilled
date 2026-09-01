@@ -21,6 +21,7 @@ VENDOR_MODEL_SLUG = re.compile(
     re.IGNORECASE,
 )
 MARKDOWN_LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+BLOCK_SCALAR_HEADER = re.compile(r"^([|>])([+-])?([1-9])?$")
 PORTABLE_EXECUTION = """## Portable execution
 
 Use the host's native planning, user-interaction, and delegation capabilities.
@@ -99,6 +100,29 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "**PRs.** Apply an available prose-cleanup workflow to agent-authored text before commit; "
         "run the **no-comments** skill before review; apply the **unslop** skill to the PR "
         "description and commit bodies.",
+    ),
+    (
+        "**PRs.** Run `/deslop` from `cursor-team-kit` over the diff before commit. Run `/no-comments` "
+        "before review. Write every PR title, PR description, and commit body with `/technical-writing`, "
+        "then apply `/unslop`. Apply every technical-writing layer except Diátaxis. Use one word for "
+        "each action, keep articles, and avoid `-ing` when a plain verb works.",
+        "**PRs.** Apply an available prose-cleanup workflow to agent-authored text before commit. Run the "
+        "**no-comments** skill before review. Write every PR title, PR description, and commit body with "
+        "**technical-writing**, then apply **unslop**. Apply every technical-writing layer except "
+        "Diátaxis. Use one word for each action, keep articles, and avoid `-ing` when a plain verb "
+        "works.",
+    ),
+    (
+        "**Control skill.** Pick it by surface. Browser, Electron, and web UIs use `control-ui` from "
+        "`cursor-team-kit`. CLIs and TUIs use `control-cli` from `cursor-team-kit`. Native mobile uses "
+        "whatever simulator-driving skill the repo has. A PR that touches two surfaces gets lanes on "
+        "both. A surface with no control skill is a risk in Appendix C, and its live block still names "
+        "how each lane drives it.",
+        "**Verification harness.** Pick it by surface. Browser, Electron, and web UIs use the project's "
+        "available UI verification harness. CLIs and TUIs use the project's available CLI verification "
+        "harness. Native mobile uses whatever simulator-driving skill the repo has. A PR that touches "
+        "two surfaces gets lanes on both. A surface with no verification harness is a risk in Appendix C, "
+        "and its live block still names how each lane drives it.",
     ),
     (
         "About to `AskQuestion` on",
@@ -374,7 +398,7 @@ def _split_frontmatter(text: str, source: Path) -> Tuple[List[str], str]:
 
 def _decode_source_scalar(raw: str, source: Path, key: str) -> str:
     raw = raw.strip()
-    if not raw or raw in {"|", ">", "|-", ">-"}:
+    if not raw or BLOCK_SCALAR_HEADER.fullmatch(raw):
         raise PortError(f"{source}: {key} must be a one-line scalar")
     if raw.startswith('"'):
         try:
@@ -389,17 +413,95 @@ def _decode_source_scalar(raw: str, source: Path, key: str) -> str:
     return raw
 
 
+def _leading_spaces(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _fold_block_lines(lines: Sequence[str]) -> str:
+    parts: List[str] = []
+    started = False
+    last_was_empty = False
+    for line in lines:
+        if line == "":
+            if started:
+                parts.append("\n")
+                last_was_empty = True
+            continue
+        if not started:
+            parts.append(line)
+            started = True
+        elif last_was_empty:
+            parts.append(line)
+        else:
+            parts.append(" ")
+            parts.append(line)
+        last_was_empty = False
+    return "".join(parts)
+
+
+def _decode_block_scalar(header: str, lines: Sequence[str], source: Path, key: str) -> str:
+    match = BLOCK_SCALAR_HEADER.fullmatch(header)
+    if match is None:
+        raise PortError(f"{source}: {key} must be a one-line scalar")
+    style, chomp, indent_hint = match.group(1), match.group(2) or "", match.group(3)
+    nonempty = [line for line in lines if line.strip()]
+    if not nonempty:
+        raise PortError(f"{source}: {key} must be a one-line scalar")
+    indent = int(indent_hint) if indent_hint else min(_leading_spaces(line) for line in nonempty)
+    if indent == 0:
+        raise PortError(f"{source}: {key} block scalar must be indented")
+    stripped: List[str] = []
+    for line in lines:
+        if not line.strip():
+            stripped.append("")
+            continue
+        if _leading_spaces(line) < indent or not line.startswith(" " * indent):
+            raise PortError(f"{source}: {key} block scalar is indented less than the block indent")
+        content = line[indent:]
+        stripped.append(content.rstrip() if style == ">" else content)
+    if style == ">":
+        text = _fold_block_lines(stripped)
+    else:
+        text = "\n".join(stripped)
+    if chomp == "-":
+        return text.rstrip("\n")
+    if chomp == "+":
+        return text if text.endswith("\n") else text + "\n"
+    return text.rstrip("\n") + "\n"
+
+
+def _collect_block_lines(lines: Sequence[str], start: int) -> Tuple[List[str], int]:
+    collected: List[str] = []
+    index = start
+    while index < len(lines):
+        line = lines[index]
+        if line.strip() == "" or line.startswith((" ", "\t")):
+            collected.append(line)
+            index += 1
+            continue
+        break
+    return collected, index
+
+
 def _source_metadata(frontmatter: Sequence[str], source: Path) -> Tuple[str, str, bool]:
     values: Dict[str, str] = {}
     explicit = False
-    for line in frontmatter:
+    index = 0
+    while index < len(frontmatter):
+        line = frontmatter[index]
+        index += 1
         if line.startswith((" ", "\t")) or ":" not in line:
             continue
         key, raw = line.split(":", 1)
         key = key.strip()
+        raw = raw.strip()
         if key in {"name", "description"}:
-            values[key] = _decode_source_scalar(raw, source, key)
-        elif key == "disable-model-invocation" and raw.strip().lower() == "true":
+            if BLOCK_SCALAR_HEADER.fullmatch(raw):
+                block_lines, index = _collect_block_lines(frontmatter, index)
+                values[key] = _decode_block_scalar(raw, block_lines, source, key)
+            else:
+                values[key] = _decode_source_scalar(raw, source, key)
+        elif key == "disable-model-invocation" and raw.lower() == "true":
             explicit = True
     if "name" not in values or "description" not in values:
         raise PortError(f"{source}: source skill must define name and description")
@@ -544,8 +646,11 @@ def _rewrite_text(text: str, rewrites: Sequence[Tuple[str, str]], skill_names: S
         ),
         ("via the control skill", "with the project's available verification harness"),
         ("the matching control skill", "the project's available verification harness"),
+        ("through its control skill", "through its verification harness"),
         ("the control skill", "the project's available verification harness"),
         ("No control skill", "No verification harness"),
+        ("no control skill", "no verification harness"),
+        ("<control skill path>", "<verification harness path>"),
         ('"make a control skill for this repo"', '"make a verification skill for this repo"'),
         (
             "and not another host PR-monitoring workflow, whose description matches the same words. ",
@@ -663,6 +768,11 @@ def _rewrite_text(text: str, rewrites: Sequence[Tuple[str, str]], skill_names: S
     )
     for old, new in post_rewrites:
         text = text.replace(old, new)
+    text = re.sub(r"\bcontrol-skill\b", "verification harness", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bControl skill\b", "Verification harness", text)
+    text = re.sub(r"\bcontrol skill\b", "verification harness", text)
+    text = text.replace("`optional companion tooling`", "available verification tooling")
+    text = text.replace("optional companion tooling", "available verification tooling")
     text = VENDOR_MODEL_SLUG.sub("available-model", text)
     text = re.sub(r"\bTask\b", "delegation operation", text)
     text = text.replace("delegation operation subagent", "delegated worker")
@@ -762,6 +872,8 @@ def _copy_resource(
     else:
         if source.name == "worktree-audit.sh":
             text = _portable_worktree_script(text)
+        if source.name == "check-plan.mjs":
+            text = text.replace("grok-4.6-fast-xhigh", "fast-code-model")
         if source.suffix.lower() == ".md":
             text = _rewrite_text(text, rewrites, skill_names)
         else:
