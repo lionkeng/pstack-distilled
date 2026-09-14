@@ -1,6 +1,6 @@
 ---
 name: "unslop"
-description: "Cut AI tells from any writing. Must always apply."
+description: "Edit prose for plain language and natural voice when drafting or revising substantial text or when explicitly requested."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/unslop"

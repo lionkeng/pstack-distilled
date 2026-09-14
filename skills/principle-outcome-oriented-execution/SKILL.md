@@ -1,6 +1,6 @@
 ---
 name: "principle-outcome-oriented-execution"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply during planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture; don't preserve smooth intermediate states with throwaway compatibility code."
+description: "Explicit request or pstack routing only. Keep a planned rewrite or migration focused on its target architecture."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-outcome-oriented-execution"

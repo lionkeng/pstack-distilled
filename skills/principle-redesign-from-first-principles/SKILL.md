@@ -1,6 +1,6 @@
 ---
 name: "principle-redesign-from-first-principles"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when integrating a new requirement into an existing design. Redesign as if the requirement had been a foundational assumption from day one, instead of bolting it on."
+description: "Explicit request or pstack routing only. Reconsider an existing design when a new requirement changes its assumptions."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-redesign-from-first-principles"

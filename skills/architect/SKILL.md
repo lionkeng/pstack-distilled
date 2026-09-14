@@ -1,6 +1,6 @@
 ---
 name: "architect"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Sketch types, signatures, and module structure before code, then stay in the loop while implementation fills in. Use for architect, 'architect this', 'design this', or non-trivial work where jumping to code would lock in the wrong shape."
+description: "Explicit request or pstack routing only. Design types, interfaces, and module structure before implementation."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/architect"

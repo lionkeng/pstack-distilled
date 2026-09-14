@@ -1,6 +1,6 @@
 ---
 name: "technical-writing"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Layered technical-writing standard: Diátaxis structure, Google developer style sentences, STE instruction rules, Global English syntax. Use for technical-writing or when writing or reviewing docs, RFCs, readmes, PR descriptions, or commit messages."
+description: "Explicit request or pstack routing only. Write or review technical documentation using audience, document purpose, and plain-language structure."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/technical-writing"

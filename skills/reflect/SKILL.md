@@ -1,6 +1,6 @@
 ---
 name: "reflect"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Spawn three parallel review subagents over the active conversation record, surface learnings, and route each to a concrete edit on an existing skill. Use when the user says reflect."
+description: "Explicit request or pstack routing only. Review conversation evidence for lessons and propose targeted skill improvements."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/reflect"

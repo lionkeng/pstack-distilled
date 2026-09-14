@@ -1,6 +1,6 @@
 ---
 name: "teach"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Explain a body of work plainly so a person actually understands it. Runs the `how` and `why` skills and weaves what they find into one clear explanation. Use for 'teach me this', 'help me really understand X', 'explain this change or subsystem to me'."
+description: "Explicit request or pstack routing only. Explain a change or subsystem using its behavior and decision history."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/teach"

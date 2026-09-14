@@ -1,6 +1,6 @@
 ---
 name: "principle-minimize-reader-load"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when reviewing or shaping code that's hard to trace. Count layers between question and answer, and hidden state in the reader's head; collapse one-caller wrappers and shrink mutable scope."
+description: "Explicit request or pstack routing only. Simplify code whose layers or hidden state make behavior hard to trace."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-minimize-reader-load"

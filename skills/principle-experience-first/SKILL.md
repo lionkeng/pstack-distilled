@@ -1,6 +1,6 @@
 ---
 name: "principle-experience-first"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when product, UX, or feature-scope tradeoffs come up. Choose user delight over implementation convenience; ship fewer polished features over more rough ones."
+description: "Explicit request or pstack routing only. Evaluate product scope and UX tradeoffs from the user's experience."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-experience-first"

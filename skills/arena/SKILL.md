@@ -1,6 +1,6 @@
 ---
 name: "arena"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Spawn N parallel candidates at the same task, pick a base, graft the strongest parts of the losers into it. Use for arena, 'arena this', 'throw it in the arena', or when one attempt at a non-trivial artifact would lock in the wrong shape."
+description: "Explicit request or pstack routing only. Build independent candidates for the same task and combine their strongest parts."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/arena"

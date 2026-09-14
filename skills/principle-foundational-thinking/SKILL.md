@@ -1,6 +1,6 @@
 ---
 name: "principle-foundational-thinking"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply before writing logic: choosing core types and data structures, sequencing scaffold-vs-feature work, asking what concurrent actors share. Get the data structures right so downstream code becomes obvious."
+description: "Explicit request or pstack routing only. Choose core data structures and ownership before a consequential implementation."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-foundational-thinking"

@@ -1,6 +1,6 @@
 ---
 name: "principle-boundary-discipline"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when wiring validation, error handling, or framework adapters. Concentrate guards at system boundaries (CLI, config, network, external APIs); trust internal types and keep business logic in pure functions."
+description: "Explicit request or pstack routing only. Place validation and error handling at external system boundaries."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-boundary-discipline"

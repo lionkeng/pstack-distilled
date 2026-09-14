@@ -1,6 +1,6 @@
 ---
 name: "principle-laziness-protocol"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading. Bias toward deletion and the smallest change that solves the problem."
+description: "Explicit request or pstack routing only. Reduce unnecessary abstractions and edits in a proposed refactor."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-laziness-protocol"

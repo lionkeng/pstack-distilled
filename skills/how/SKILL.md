@@ -1,6 +1,6 @@
 ---
 name: "how"
-description: "Use for \"how does X work\", code walkthroughs before changing something, and placement / ownership / layering questions (\"where should this live\", \"which package owns this\", \"is this the right layer\"). Explains subsystem architecture, runtime flow, onboarding mental models. Can critique architecture. Use why for motivation."
+description: "Explains subsystem behavior, runtime flow, or module ownership when asked how code works. Use why for historical rationale."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/how"
@@ -74,7 +74,7 @@ Then proceed to Step 3.
 
 ### Step 2b. Direct Explain (simple questions)
 
-Spawn a single delegated worker that explores and explains in one pass:
+Explore and explain in the current thread for a simple question. Read `references/explainer-prompt.md` if its communication guidance is needed, then proceed to Step 4. Delegation is optional when it adds useful independent work; the following configuration applies only when delegating:
 
 - `worker role`: `general-purpose`
 - `model`: your configured how-explainer model (default `judgment-model`)

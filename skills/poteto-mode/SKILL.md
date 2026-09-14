@@ -1,6 +1,6 @@
 ---
 name: "poteto-mode"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. poteto's agent style for concise, detailed responses, deliberate subagents, unslopped prose, simple code, and verified work. Use for poteto, poteto-mode, or requests to work in this style."
+description: "Explicit request or pstack routing only. Apply poteto working-style preferences for concise communication, focused changes, and verification."
 license: MIT
 compatibility: "Some playbooks optionally use git, GitHub CLI, conversation history, delegation, or a branch-stacking or recurring-execution capability; without recurring execution, poll in the active session. Bundled helpers require Bun, first-run network access, and write access to their installed scripts directory for dependencies."
 metadata:

@@ -1,6 +1,6 @@
 ---
 name: "maintain-verification-skill"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Periodic pass that keeps a project's verification skill and feature map honest: parallel source readers per feature, one live session driving every feature, at most one PR of proven corrections. Use for maintain-verification-skill or \"audit the verify skill\"."
+description: "Explicit request or pstack routing only. Audit a project verification skill against current source and observable behavior."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/maintain-verification-skill"

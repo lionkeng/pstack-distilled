@@ -1,6 +1,6 @@
 ---
 name: "principle-migrate-callers-then-delete-legacy-apis"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when introducing a new internal API while old callers still exist. Migrate callers and delete the old API in the same wave instead of preserving compatibility layers."
+description: "Explicit request or pstack routing only. Plan caller migration and legacy removal when replacing an internal API."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-migrate-callers-then-delete-legacy-apis"

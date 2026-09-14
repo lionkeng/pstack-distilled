@@ -1,6 +1,6 @@
 ---
 name: "swarm"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Fan out N parallel workers, drain them, and return one report. Use for swarm, 'swarm this', or parallel coverage, races, gauntlets, and exploration."
+description: "Explicit request or pstack routing only. Run parallel workers on independent tasks and synthesize their results."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/swarm"

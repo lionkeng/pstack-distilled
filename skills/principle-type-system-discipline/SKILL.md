@@ -1,6 +1,6 @@
 ---
 name: "principle-type-system-discipline"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when designing types, reviewing a function signature, or writing code in any statically-typed language. Make illegal states unrepresentable, brand semantic primitives, parse external data at boundaries, refuse to lie to the compiler, exhaust variants, derive from authoritative schemas."
+description: "Explicit request or pstack routing only. Model valid states and checked external inputs in a static type system."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-type-system-discipline"

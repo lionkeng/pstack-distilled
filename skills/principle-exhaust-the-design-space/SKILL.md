@@ -1,6 +1,6 @@
 ---
 name: "principle-exhaust-the-design-space"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when facing a novel UI interaction or architectural decision with no precedent in the codebase. Build 2-3 competing prototypes and compare side by side before committing."
+description: "Explicit request or pstack routing only. Compare candidate designs for a novel interaction or architectural decision."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-exhaust-the-design-space"

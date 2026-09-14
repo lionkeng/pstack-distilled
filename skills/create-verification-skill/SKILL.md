@@ -1,6 +1,6 @@
 ---
 name: "create-verification-skill"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Generate a project-local verification skill that drives your app the way a user does — any language, framework, or platform. Use for create-verification-skill, \"make a verification skill for this repo\", or when a project has no scripted way to prove UI/CLI/service behavior."
+description: "Explicit request or pstack routing only. Create a project skill that verifies real UI, CLI, or service behavior."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/create-verification-skill"

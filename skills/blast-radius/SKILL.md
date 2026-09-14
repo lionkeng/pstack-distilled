@@ -1,6 +1,6 @@
 ---
 name: "blast-radius"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Find what a change could break somewhere else before it ships, beyond the diff, and prove the one fact it's safe because of by running real code instead of writing it up. Use for 'blast radius of X', 'what could this break', or reviewing a small diff you don't trust."
+description: "Explicit request or pstack routing only. Trace a proposed change to affected callers and verify its safety assumptions."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/blast-radius"

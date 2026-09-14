@@ -1,6 +1,6 @@
 ---
 name: "principle-separate-before-serializing-shared-state"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when concurrent actors might write to the same file, branch, key, or state object. Eliminate the sharing first; serialize structurally only when one shared writer is a real invariant."
+description: "Explicit request or pstack routing only. Reduce shared writes before adding serialization to concurrent work."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-separate-before-serializing-shared-state"

@@ -1,6 +1,6 @@
 ---
 name: "principle-guard-the-context-window"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when context is filling up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents; keep summaries in the main thread, not raw payloads."
+description: "Explicit request or pstack routing only. Reduce context pressure during large outputs, repeated reads, or long investigations."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-guard-the-context-window"

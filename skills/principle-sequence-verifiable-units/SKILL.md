@@ -1,6 +1,6 @@
 ---
 name: "principle-sequence-verifiable-units"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply to multi-step work (sweeps, migrations, runs of similar edits) and to how you stack commits and PRs. Break work into small units that each end in a verifiable state, check each before the next, and order delivery so the sequence proves itself to a reviewer."
+description: "Explicit request or pstack routing only. Sequence a migration or multi-step change into independently verifiable units."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-sequence-verifiable-units"

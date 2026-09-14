@@ -1,6 +1,6 @@
 ---
 name: "principle-fix-root-causes"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when debugging. Trace each symptom to its root cause and fix it there; reproduce first, ask why until you reach it, resist nil-check guards that silence crashes."
+description: "Explicit request or pstack routing only. Trace a reproduced bug to its cause and fix the responsible code."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-fix-root-causes"

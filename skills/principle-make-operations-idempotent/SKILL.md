@@ -1,6 +1,6 @@
 ---
 name: "principle-make-operations-idempotent"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when designing commands, lifecycle steps, or processing loops that run amid crashes, restarts, and retries. Converge to the same end state regardless of partial prior runs."
+description: "Explicit request or pstack routing only. Design retryable commands and processing loops to converge after partial execution."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-make-operations-idempotent"

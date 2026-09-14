@@ -1,6 +1,6 @@
 ---
 name: "interrogate"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Use for \"interrogate\", \"adversarial review\", \"multi-model review\", \"challenge this\", \"stress test this code\", \"find blind spots\", or \"tear this apart\". Multiple LLM reviewers challenge changes from independent angles."
+description: "Explicit request or pstack routing only. Challenge code or design with independent adversarial reviewers."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/interrogate"

@@ -1,6 +1,6 @@
 ---
 name: "recall"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Reconstruct your recent working context from your own chat history, live state, and the shared record (user reports, prior fixes, incidents), then hand back a tight current-state brief. Use for 'recall my work on X', 'catch me up', 'what have I been working on', 'where did I leave off', before starting or resuming work."
+description: "Explicit request or pstack routing only. Reconstruct recent work from available conversation history and repository evidence."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/recall"

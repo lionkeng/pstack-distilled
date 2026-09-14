@@ -1,6 +1,6 @@
 ---
 name: "no-comments"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Review comments with an independent deletion-first lens, fix accepted findings, and offer encodings for claimed constraints."
+description: "Explicit request or pstack routing only. Review comments for removal or replacement with enforceable constraints."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/no-comments"

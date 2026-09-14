@@ -1,6 +1,6 @@
 ---
 name: "tdd"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Use only when the user explicitly asks for TDD, a failing test, or a regression test, OR when the bug has an obvious cheap local test target. Skip when the test path is unclear, expensive, integration-heavy, or not requested."
+description: "Explicit request or pstack routing only. Use a failing test to drive a fix or feature when a practical test boundary is available."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/tdd"

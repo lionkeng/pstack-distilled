@@ -1,6 +1,6 @@
 ---
 name: "show-me-your-work"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Keep a reviewable decision trail for long-running or unattended work: a TSV log with one row per decision (what, why, evidence, result). Local by default; commit it when a reviewer needs the trail to trust the result. Use for show-me-your-work, autonomous or multi-phase runs, or work a human reviews after stepping away."
+description: "Explicit request or pstack routing only. Keep an evidence-backed decision log for long-running or unattended work."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/show-me-your-work"

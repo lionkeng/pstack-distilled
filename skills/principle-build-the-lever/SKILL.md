@@ -1,6 +1,6 @@
 ---
 name: "principle-build-the-lever"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks. Build the tool that does it or proves it (codemod, script, generator, or a skill your subagents follow) instead of working by hand. The tool is the artifact a reviewer can rerun."
+description: "Explicit request or pstack routing only. Build reusable automation when a task benefits from repeatable edits or verification."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-build-the-lever"

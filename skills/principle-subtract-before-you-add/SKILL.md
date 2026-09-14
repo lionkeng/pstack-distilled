@@ -1,6 +1,6 @@
 ---
 name: "principle-subtract-before-you-add"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when sequencing an addition, refactor, or rewrite. Remove dead weight, redundant validators, and stub references first, then build on the simpler base."
+description: "Explicit request or pstack routing only. Identify removable code before expanding a refactor or feature."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-subtract-before-you-add"

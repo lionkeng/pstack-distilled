@@ -1,6 +1,6 @@
 ---
 name: "automate-me"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Use for \"automate me\", \"create/update/refresh my -mode skill\", \"turn/capture my preferences or working style into a skill\", or wanting agents to follow how the user works. Drafts or revises a personal -mode skill with an Agent Skills-compatible authoring workflow and unslop, optionally pulling fresh evidence from recent conversation records."
+description: "Explicit request or pstack routing only. Create or update a personal working-style skill from the user's preferences and evidence."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/automate-me"

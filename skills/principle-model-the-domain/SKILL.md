@@ -1,6 +1,6 @@
 ---
 name: "principle-model-the-domain"
-description: "Use only when explicitly requested or when another pstack skill directs you to it. Apply when writing stateful logic, or when code branches a lot or repeats a shape assumption across files. Encode the domain in a structure instead of scattered conditionals."
+description: "Explicit request or pstack routing only. Represent domain states directly when scattered conditions obscure valid behavior."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/principle-model-the-domain"
