@@ -140,7 +140,9 @@ Report comments that should be removed.
         self._git(self.upstream, "commit", "--quiet", "-m", message)
         return self._git(self.upstream, "rev-parse", "HEAD")
 
-    def _sync(self, *, check: bool = False, report: Optional[Path] = None) -> subprocess.CompletedProcess[str]:
+    def _sync(
+        self, *, check: bool = False, report: Optional[Path] = None, regenerate: bool = False
+    ) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
             str(SYNC),
@@ -153,6 +155,8 @@ Report comments that should be removed.
         ]
         if check:
             command.append("--check")
+        if regenerate:
+            command.append("--regenerate")
         if report:
             command.extend(["--report-json", str(report)])
         return subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -214,7 +218,11 @@ Report comments that should be removed.
         reviewer = self.downstream / "skills/no-comments/references/comment-reviewer.md"
         self.assertTrue(reviewer.is_file())
         no_comments = (self.downstream / "skills/no-comments/SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("independent deletion-first lens", no_comments)
+        self.assertIn(
+            'description: "Explicit request or pstack routing only. '
+            'Review comments for removal or replacement with enforceable constraints."',
+            no_comments,
+        )
         self.assertIn("apply the lens inline", no_comments)
 
         self._git(self.downstream, "init", "--quiet", "-b", "main")
@@ -508,6 +516,64 @@ description: Broken alpha. Use when alpha is in scope.
         self.assertEqual(repaired.returncode, 0, repaired.stderr)
         current = json.loads(lock_path.read_text(encoding="utf-8"))
         self.assertEqual(current["source"]["commit"], self.v1_commit)
+
+    def test_regenerate_rebuilds_from_locked_commit_without_advancing(self) -> None:
+        first = self._sync()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        before = self._snapshot_downstream()
+        lock_path = self.downstream / "upstream.lock.json"
+        self._write(
+            "pstack/skills/beta/SKILL.md",
+            """---
+name: beta
+description: Explain revised beta behavior. Use when beta is in scope.
+---
+
+# Beta
+
+Revised portable content.
+""",
+        )
+        v2_commit = self._commit_upstream("upstream v2")
+        beta = self.downstream / "skills/beta/SKILL.md"
+        beta.write_text(beta.read_text(encoding="utf-8") + "\nDrift.\n", encoding="utf-8")
+
+        regenerated = self._sync(regenerate=True)
+
+        self.assertEqual(regenerated.returncode, 0, regenerated.stderr)
+        self.assertIn("updated", regenerated.stdout)
+        self.assertEqual(self._snapshot_downstream(), before)
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        self.assertEqual(lock["source"]["commit"], self.v1_commit)
+        self.assertEqual(lock["source"]["ref"], "main")
+
+        advanced = self._sync()
+
+        self.assertEqual(advanced.returncode, 0, advanced.stderr)
+        self.assertEqual(json.loads(lock_path.read_text(encoding="utf-8"))["source"]["commit"], v2_commit)
+        self.assertIn("Revised portable content.", beta.read_text(encoding="utf-8"))
+
+    def test_regenerate_requires_lock_and_matching_trees(self) -> None:
+        missing = self._sync(regenerate=True)
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn("requires an existing lock", missing.stderr)
+        self.assertEqual(self._snapshot_downstream(), {})
+
+        first = self._sync()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self._write("pstack/skills/beta/SKILL.md", "---\nname: beta\ndescription: Changed.\n---\n\n# Beta\n\nChanged.\n")
+        v2_commit = self._commit_upstream("upstream v2")
+        lock_path = self.downstream / "upstream.lock.json"
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        lock["source"]["commit"] = v2_commit
+        lock_path.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        before = self._snapshot_downstream()
+
+        mismatched = self._sync(regenerate=True)
+
+        self.assertEqual(mismatched.returncode, 2)
+        self.assertIn("does not produce the recorded upstream trees", mismatched.stderr)
+        self.assertEqual(self._snapshot_downstream(), before)
 
     def test_shipped_license_keeps_both_copyright_holders(self) -> None:
         result = self._sync()

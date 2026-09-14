@@ -146,6 +146,10 @@
       "to": "execution environment: local"
     },
     {
+      "from": "claude-fable-5-1-thinking-max",
+      "to": "judgment-model"
+    },
+    {
       "from": "claude-fable-5-thinking-max",
       "to": "judgment-model"
     },
@@ -197,5 +201,184 @@
       "from": "@cursor-skill/poteto-mode-tools",
       "to": "@pstack-distilled/poteto-mode-tools"
     }
-  ]
+  ],
+  "skills": {
+    "architect": {
+      "description": "Design types, interfaces, and module structure before implementation."
+    },
+    "arena": {
+      "description": "Build independent candidates for the same task and combine their strongest parts."
+    },
+    "automate-me": {
+      "description": "Create or update a personal working-style skill from the user's preferences and evidence."
+    },
+    "blast-radius": {
+      "description": "Trace a proposed change to affected callers and verify its safety assumptions."
+    },
+    "bro": {
+      "description": "Restate the last message in plain language."
+    },
+    "create-verification-skill": {
+      "description": "Create a project skill that verifies real UI, CLI, or service behavior."
+    },
+    "figure-it-out": {
+      "description": "Design an auditable execution plan for a large migration or difficult multi-part change."
+    },
+    "how": {
+      "description": "Explains subsystem behavior, runtime flow, or module ownership when asked how code works. Use why for historical rationale.",
+      "explicit": false,
+      "body": [
+        {
+          "from": "Spawn one delegated worker that explores and explains in one pass:",
+          "to": "Explore and explain in the current thread for a simple question. Read `references/explainer-prompt.md` if its communication guidance is needed, then proceed to Step 4. Delegation is optional when it adds useful independent work; the following configuration applies only when delegating:"
+        }
+      ]
+    },
+    "interrogate": {
+      "description": "Challenge code or design with independent adversarial reviewers."
+    },
+    "maintain-verification-skill": {
+      "description": "Audit a project verification skill against current source and observable behavior."
+    },
+    "no-comments": {
+      "description": "Review comments for removal or replacement with enforceable constraints."
+    },
+    "poteto-mode": {
+      "description": "Apply poteto working-style preferences for concise communication, focused changes, and verification."
+    },
+    "principle-attack-the-premise": {
+      "description": "Question a shared premise after two fixes built on it fail the same check."
+    },
+    "principle-boundary-discipline": {
+      "description": "Place validation and error handling at external system boundaries."
+    },
+    "principle-build-the-lever": {
+      "description": "Build reusable automation when a task benefits from repeatable edits or verification."
+    },
+    "principle-encode-lessons-in-structure": {
+      "description": "Turn a recurring correction into an enforceable check or reusable mechanism."
+    },
+    "principle-exhaust-the-design-space": {
+      "description": "Compare candidate designs for a novel interaction or architectural decision."
+    },
+    "principle-experience-first": {
+      "description": "Evaluate product scope and UX tradeoffs from the user's experience."
+    },
+    "principle-fix-root-causes": {
+      "description": "Trace a reproduced bug to its cause and fix the responsible code."
+    },
+    "principle-foundational-thinking": {
+      "description": "Choose core data structures and ownership before a consequential implementation."
+    },
+    "principle-guard-the-context-window": {
+      "description": "Reduce context pressure during large outputs, repeated reads, or long investigations."
+    },
+    "principle-laziness-protocol": {
+      "description": "Reduce unnecessary abstractions and edits in a proposed refactor."
+    },
+    "principle-make-operations-idempotent": {
+      "description": "Design retryable commands and processing loops to converge after partial execution."
+    },
+    "principle-migrate-callers-then-delete-legacy-apis": {
+      "description": "Plan caller migration and legacy removal when replacing an internal API."
+    },
+    "principle-minimize-reader-load": {
+      "description": "Simplify code whose layers or hidden state make behavior hard to trace."
+    },
+    "principle-model-the-domain": {
+      "description": "Represent domain states directly when scattered conditions obscure valid behavior."
+    },
+    "principle-never-block-on-the-human": {
+      "description": "Resolve routine decisions within authorized reversible work."
+    },
+    "principle-outcome-oriented-execution": {
+      "description": "Keep a planned rewrite or migration focused on its target architecture."
+    },
+    "principle-prove-it-works": {
+      "description": "Verify the actual requested result before reporting completion."
+    },
+    "principle-redesign-from-first-principles": {
+      "description": "Reconsider an existing design when a new requirement changes its assumptions."
+    },
+    "principle-separate-before-serializing-shared-state": {
+      "description": "Reduce shared writes before adding serialization to concurrent work."
+    },
+    "principle-sequence-verifiable-units": {
+      "description": "Sequence a migration or multi-step change into independently verifiable units."
+    },
+    "principle-subtract-before-you-add": {
+      "description": "Identify removable code before expanding a refactor or feature."
+    },
+    "principle-test-behavior-not-implementation": {
+      "description": "Test observable behavior through the code's public interface against literal expected values."
+    },
+    "principle-type-system-discipline": {
+      "description": "Model valid states and checked external inputs in a static type system."
+    },
+    "recall": {
+      "description": "Reconstruct recent work from available conversation history and repository evidence."
+    },
+    "reflect": {
+      "description": "Review conversation evidence for lessons and propose targeted skill improvements."
+    },
+    "show-me-your-work": {
+      "description": "Keep an evidence-backed decision log for long-running or unattended work."
+    },
+    "swarm": {
+      "description": "Run parallel workers on independent tasks and synthesize their results."
+    },
+    "tdd": {
+      "description": "Use a failing test to drive a fix or feature when a practical test boundary is available."
+    },
+    "teach": {
+      "description": "Explain a change or subsystem using its behavior and decision history."
+    },
+    "technical-writing": {
+      "description": "Write or review technical documentation using audience, document purpose, and plain-language structure."
+    },
+    "typescript-best-practices": {
+      "description": "Design or review TypeScript types, narrowing, boundary validation, and public interfaces when type safety is central to the task.",
+      "explicit": false,
+      "body": [
+        {
+          "from": "Apply the **type-system-discipline** principle skill first.",
+          "to": "Use the **type-system-discipline** principle skill when the task needs deeper domain-modeling guidance. The rules below are decision aids; preserve established APIs unless the task calls for changing them."
+        },
+        {
+          "from": "| No `as` casts | Every `as` is a runtime crash waiting. Cast only after validation. |",
+          "to": "| Type assertions | Prefer narrowing and `satisfies`. Use assertions only with an established invariant; `as const` is valid for literal inference. |"
+        },
+        {
+          "from": "| Object args | Pass objects, not positional, so argument order is self-documenting. Skip on hot paths (per-frame render, tokenizers, parsers). |",
+          "to": "| Function arguments | Match existing APIs. Consider an options object when positional parameters are ambiguous or numerous. |"
+        }
+      ]
+    },
+    "unslop": {
+      "description": "Edit prose for plain language and natural voice when drafting or revising substantial text or when explicitly requested.",
+      "explicit": false
+    },
+    "why": {
+      "description": "Investigates the evidence behind a design decision, regression, or tradeoff. Use for why questions; use how for runtime behavior.",
+      "explicit": false,
+      "body": [
+        {
+          "from": "## Step 3. Spawn Parallel Investigators (default posture)",
+          "to": "## Step 3. Investigate unresolved questions"
+        },
+        {
+          "from": "**Default to the full parallel investigation.**",
+          "to": "For a narrow question with sufficient evidence in the code history or linked decision record, answer directly. Otherwise choose relevant evidence categories from the unresolved questions. Delegate independent investigations when useful and available; the roster below is a menu, not a required sweep of all sources."
+        },
+        {
+          "from": "### When to skip an investigator",
+          "to": "### Choose relevant sources"
+        },
+        {
+          "from": "Only skip with an **explicit, written justification** that goes in the final \"Sources Consulted\" section. Two valid reasons:\n\n- **No MCP is available for that category** in this environment. Flag this as a gap, not a choice. Example: \"Real-time team chat skipped. No matching MCP available, so the conversational record was not searchable.\"\n- **The source is provably irrelevant**, not just \"probably irrelevant.\" A high bar. Example: \"Error / exception tracking skipped. Target is a build-time script with no runtime code path.\"\n\nIf your scope assessment suggests a single-commit trivial target where the PR description already contains the complete answer, you may answer inline **only after** confirming all seven available category searches would be redundant. Say so explicitly. This should be rare.",
+          "to": "Select sources that can resolve the remaining questions. Record meaningful access limits and distinguish sources actually searched from sources not consulted. A broad source inventory is useful for an incident or comprehensive historical audit; it is not required for a narrow decision already explained by a cited record."
+        }
+      ]
+    }
+  }
 }
