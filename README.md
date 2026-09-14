@@ -82,7 +82,24 @@ sync ships upstream's MIT text with the `license_copyright` line from
 next sync would overwrite the change. When the generated skills change,
 the sync bumps the patch version in `.claude-plugin/plugin.json` so anyone who
 installed the plugin sees an update. Put conversion rules in
-`porting/rewrites.json` or the conversion code.
+`porting/rewrites.json` or the conversion code, never in `skills/`: the next
+sync regenerates that tree, and `verify_lock.py` fails until the lock matches
+the checked-in output.
+
+`porting/rewrites.json` has two sections. `literal` lists text replacements
+applied to every converted file. `skills` maps an upstream skill name to a
+replacement `description` and to `body` rules. Each body rule names an exact
+`from` passage that must occur once in the converted `SKILL.md` and the `to`
+text that replaces it. When upstream rewrites that passage, the sync fails
+instead of dropping the edit. An `explicit` value of `false` keeps a skill
+open to automatic triggering when upstream marks it explicit-only. After
+changing conversion rules, rebuild the
+tree from the locked upstream commit and refresh the lock without pulling
+newer upstream commits:
+
+```sh
+python3 scripts/sync_upstream.py --regenerate
+```
 
 Run the offline sync and validation tests with:
 

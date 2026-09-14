@@ -1,20 +1,20 @@
 {
   "output": {
-    "converter_sha256": "4e14ac13a6367120634835abb1779881e8dcad0da4b41c1013c5d94cc33d6d1b",
+    "converter_sha256": "005eb627eb2c86cca24539dc90e4743efb11b0f84c40099a208147e717020ada",
     "license_sha256": "ca02f43bbef6fa4637cb34759b5a03a2c959e2f95b0395870f859eec03492d2a",
     "path": "skills",
-    "sha256": "d0924ba37f659a5b19ff2ace18e95919078bf0bb8168f5f1778d345e889b54fe",
-    "skill_count": 45
+    "sha256": "28cbad175605efbf76e724923c5fd501b89418fa72b28483f05ad372e460792b",
+    "skill_count": 47
   },
   "schema_version": 1,
   "source": {
-    "commit": "b9ddc83c32972210b8a94d389130713e8eed346e",
+    "commit": "be432a96ed36e48d05f44bf375864355f62263f9",
     "license_sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
     "path": "pstack",
-    "plugin_version": "0.14.5",
+    "plugin_version": "0.15.2",
     "ref": "main",
     "repository": "https://github.com/cursor/plugins.git",
-    "skills_tree": "8de50d1c4afc5119c3dcf1aa97dc9e3f9ff55812",
-    "tree": "950b90234c17babd00c43e32b19ae50abb4720f5"
+    "skills_tree": "6a5daa9d451429f56fff612c63cb4f58e1521023",
+    "tree": "f235052692fba08f7ff40df62775339cb4794c4c"
   }
 }

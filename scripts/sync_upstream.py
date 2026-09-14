@@ -409,6 +409,7 @@ def synchronize(
     source_override: Optional[str] = None,
     ref_override: Optional[str] = None,
     check: bool = False,
+    regenerate: bool = False,
 ) -> Mapping[str, object]:
     repo_root = repo_root.resolve()
     if not repo_root.is_dir():
@@ -432,12 +433,36 @@ def synchronize(
         raise SyncError(f"{rewrites_path}: rewrite configuration does not exist")
 
     existing_lock = _read_existing_lock(repo_root / lock_path)
+    fetch_ref = ref
+    if regenerate:
+        # Rebuild from the commit the lock already records so converter changes
+        # land without pulling upstream commits that arrived since.
+        if existing_lock is None:
+            raise SyncError(f"{repo_root / lock_path}: --regenerate requires an existing lock")
+        locked_source = existing_lock["source"]
+        assert isinstance(locked_source, Mapping)
+        for key, value in (("repository", source), ("ref", ref)):
+            if locked_source.get(key) != value:
+                raise SyncError(
+                    f"--regenerate cannot relabel the locked source.{key} "
+                    f"{locked_source.get(key)!r} as {value!r}"
+                )
+        fetch_ref = str(locked_source["commit"])
     with tempfile.TemporaryDirectory(prefix="pstack-upstream-") as checkout_name:
         checkout = Path(checkout_name)
-        _checkout(source, ref, source_path, checkout)
+        _checkout(source, fetch_ref, source_path, checkout)
         commit = _run(["git", "rev-parse", "HEAD"], checkout)
         tree = _run(["git", "rev-parse", f"HEAD:{source_path.as_posix()}"], checkout)
         skills_tree = _run(["git", "rev-parse", f"HEAD:{(source_path / 'skills').as_posix()}"], checkout)
+        if regenerate:
+            assert existing_lock is not None
+            locked_source = existing_lock["source"]
+            assert isinstance(locked_source, Mapping)
+            if (tree, skills_tree) != (locked_source.get("tree"), locked_source.get("skills_tree")):
+                raise SyncError(
+                    f"locked commit {commit} does not produce the recorded upstream trees; "
+                    "run a full synchronization instead"
+                )
         pstack_root = checkout / source_path
 
         license_source = pstack_root / "LICENSE"
@@ -573,6 +598,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--source", help="Override upstream Git URL/path (primarily for tests)")
     parser.add_argument("--ref", help="Override upstream Git ref")
     parser.add_argument("--check", action="store_true", help="Report drift without writing")
+    parser.add_argument(
+        "--regenerate",
+        action="store_true",
+        help="Rebuild the generated tree from the commit recorded in the lock instead of the ref tip",
+    )
     parser.add_argument("--report-json", type=Path, help="Write a deterministic synchronization report")
     args = parser.parse_args(argv)
 
@@ -583,6 +613,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             source_override=args.source,
             ref_override=args.ref,
             check=args.check,
+            regenerate=args.regenerate,
         )
     except (OSError, UnicodeError, SyncError) as exc:
         print(f"sync failed: {exc}", file=sys.stderr)

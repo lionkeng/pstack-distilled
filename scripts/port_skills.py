@@ -6,13 +6,13 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
 
 RUNTIME_MARKERS = re.compile(
     r"(?:\bCursor\b|\.cursor/|\bAsk(?:User)?Question\b|`?Task`? tool|"
     r"\bsubagent_type\b|\brun_in_background\b|/loop\b|"
-    r"claude-fable-5-thinking-max|claude-opus-5-thinking-xhigh|"
+    r"claude-fable-5(?:-1)?-thinking-max|claude-opus-5-thinking-xhigh|"
     r"gpt-5\.6-sol-max|grok-4\.6-fast-xhigh|cursor-team-kit)"
 )
 VENDOR_MODEL_SLUG = re.compile(
@@ -46,6 +46,8 @@ POTETO_COMPATIBILITY = (
     "their installed scripts directory for dependencies."
 )
 
+EXPLICIT_ACTIVATION_PREFIX = "Explicit request or pstack routing only. "
+
 SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     (
         "Use the `AskQuestion` tool (structured multi-choice)",
@@ -70,10 +72,8 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "style\", not on generic keywords like \"write code\" or \"review PR\".",
     ),
     (
-        "- Frontmatter `disable-model-invocation: true` by default. Mode skills are heavy and "
-        "opinionated; they should only apply when the user explicitly invokes them (by name or slash "
-        "command), not auto-trigger on description matching. Opt out only if the user explicitly "
-        "wants their mode to apply on every turn.",
+        "- Frontmatter `disable-model-invocation: true` by default. Opt out only if the user "
+        "explicitly wants their mode to apply on every turn.",
         "- Use only standard Agent Skills frontmatter. Encode explicit activation in the description "
         "(for example, \"Use only when the user explicitly requests this mode\") and optional "
         "namespaced metadata; do not add host-specific invocation-control fields.",
@@ -171,7 +171,7 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     ),
     (
         "The parent finds its own transcript file before fanning out. The system prompt names the "
-        "active workspace's `agent-transcripts/` directory; use that path. Do not glob across "
+        "active workspace's `agent-transcripts/` directory. Use that path. Do not glob across "
         "`~/.cursor/projects/*/`. That crosses workspace boundaries and reads private chats from "
         "unrelated projects.\n\n"
         "```bash\n"
@@ -508,7 +508,15 @@ def _source_metadata(frontmatter: Sequence[str], source: Path) -> Tuple[str, str
     return values["name"], values["description"], explicit
 
 
-def _load_rewrites(path: Path) -> Sequence[Tuple[str, str]]:
+class SkillOverride(NamedTuple):
+    """Edits applied to one converted skill after the shared rewrites."""
+
+    description: Optional[str]
+    explicit: Optional[bool]
+    body: Sequence[Tuple[str, str]]
+
+
+def _load_rewrite_config(path: Path) -> Mapping[str, object]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -517,12 +525,72 @@ def _load_rewrites(path: Path) -> Sequence[Tuple[str, str]]:
         raise PortError(f"{path}: rewrite configuration must be a JSON object")
     if raw.get("schema_version") != 1 or not isinstance(raw.get("literal"), list):
         raise PortError(f"{path}: unsupported rewrite configuration")
+    if not isinstance(raw.get("skills", {}), Mapping):
+        raise PortError(f"{path}: skills overrides must be a JSON object keyed by skill name")
+    return raw
+
+
+def _load_rewrites(path: Path) -> Sequence[Tuple[str, str]]:
+    raw = _load_rewrite_config(path)
     rewrites: List[Tuple[str, str]] = []
     for index, item in enumerate(raw["literal"]):
         if not isinstance(item, Mapping) or not isinstance(item.get("from"), str) or not isinstance(item.get("to"), str):
             raise PortError(f"{path}: literal rewrite {index} must contain string from/to values")
         rewrites.append((item["from"], item["to"]))
     return rewrites
+
+
+def _load_skill_overrides(path: Path) -> Mapping[str, SkillOverride]:
+    """Per-skill description and body edits keyed by upstream skill name.
+
+    Overrides for skills absent upstream are ignored so the same configuration
+    serves partial fixtures; a body rule whose text is missing fails in
+    ``_apply_body_override`` so upstream rewrites surface instead of dropping
+    the edit silently.
+    """
+    raw = _load_rewrite_config(path)
+    overrides: Dict[str, SkillOverride] = {}
+    for name, item in raw.get("skills", {}).items():
+        if not isinstance(item, Mapping):
+            raise PortError(f"{path}: skill override {name!r} must be a JSON object")
+        unknown = sorted(set(item) - {"description", "explicit", "body"})
+        if unknown:
+            raise PortError(f"{path}: skill override {name!r} has unsupported keys: {', '.join(unknown)}")
+        description = item.get("description")
+        if description is not None and (not isinstance(description, str) or not description):
+            raise PortError(f"{path}: skill override {name!r} description must be a non-empty string")
+        explicit = item.get("explicit")
+        if explicit is not None and not isinstance(explicit, bool):
+            raise PortError(f"{path}: skill override {name!r} explicit must be true or false")
+        rules = item.get("body", [])
+        if not isinstance(rules, list):
+            raise PortError(f"{path}: skill override {name!r} body must be a list of from/to rules")
+        body: List[Tuple[str, str]] = []
+        for index, rule in enumerate(rules):
+            if (
+                not isinstance(rule, Mapping)
+                or not isinstance(rule.get("from"), str)
+                or not rule["from"]
+                or not isinstance(rule.get("to"), str)
+            ):
+                raise PortError(
+                    f"{path}: skill override {name!r} body rule {index} must contain a non-empty from and a to string"
+                )
+            body.append((rule["from"], rule["to"]))
+        overrides[name] = SkillOverride(description=description, explicit=explicit, body=body)
+    return overrides
+
+
+def _apply_body_override(body: str, rules: Sequence[Tuple[str, str]], source: Path) -> str:
+    for old, new in rules:
+        occurrences = body.count(old)
+        if occurrences != 1:
+            raise PortError(
+                f"{source}: skill override text must occur exactly once in the converted body, "
+                f"found {occurrences}: {old[:80]!r}"
+            )
+        body = body.replace(old, new)
+    return body
 
 
 def _rewrite_text(text: str, rewrites: Sequence[Tuple[str, str]], skill_names: Sequence[str]) -> str:
@@ -952,6 +1020,7 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
     output_root.mkdir(parents=True)
 
     rewrites = _load_rewrites(rewrites_path)
+    overrides = _load_skill_overrides(rewrites_path)
     source_entries = sorted(source_skills.iterdir())
     for source_entry in source_entries:
         if source_entry.is_symlink():
@@ -992,22 +1061,28 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
                 raise PortError(f"{skill_file}: expected no-comments delegation step was not found")
             body = body.replace(original, portable).replace("Comment Sicko", "the comment reviewer")
 
+        override = overrides.get(skill_name)
+        if override is not None:
+            body = _apply_body_override(body, override.body, skill_file)
+            if override.explicit is not None:
+                explicit = override.explicit
+
         if had_runtime_markers:
             body = _inject_after_heading(body, PORTABLE_EXECUTION)
         if skill_name == "poteto-mode":
             body = _inject_after_heading(body, POTETO_PERSISTENCE)
 
-        portable_description = _rewrite_text(description, rewrites, skill_names)
-        if skill_name == "no-comments":
-            portable_description = portable_description.replace(
-                "Spawn Comment Sicko",
-                "Review comments with an independent deletion-first lens",
-            )
+        if override is not None and override.description is not None:
+            portable_description = override.description
+        else:
+            portable_description = _rewrite_text(description, rewrites, skill_names)
+            if skill_name == "no-comments":
+                portable_description = portable_description.replace(
+                    "Spawn Comment Sicko",
+                    "Review comments with an independent deletion-first lens",
+                )
         if explicit:
-            portable_description = (
-                "Use only when explicitly requested or when another pstack skill directs you to it. "
-                + portable_description
-            )
+            portable_description = EXPLICIT_ACTIVATION_PREFIX + portable_description
         if len(portable_description) > 1024:
             raise PortError(f"{skill_file}: converted description exceeds 1024 characters")
 

@@ -1,9 +1,10 @@
 ---
 name: "make-bot-ui"
-description: "Use when building a custom UI (page, dashboard, buttons) that should wake a Grok Bot over a webhook, when the user must provide a webhook sender key, or when exposing that UI on Tailscale."
+description: "Explicit request or pstack routing only. Use when building a custom UI (page, dashboard, buttons) that should wake a Grok Bot over a webhook, when the user must provide a webhook sender key, or when exposing that UI on Tailscale."
 license: MIT
 metadata:
   pstack-distilled-origin: "cursor/plugins/pstack/skills/make-bot-ui"
+  pstack-distilled-activation: "explicit"
 ---
 # How to make a bot UI
 

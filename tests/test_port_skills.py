@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
@@ -173,6 +174,83 @@ Portable body.
             self.assertIn("fast-code-model", plan)
             self.assertIn("fast-code-model", checker)
             self.assertNotIn("grok-4.6-fast-xhigh", checker)
+
+
+class SkillOverrideTest(unittest.TestCase):
+    SOURCE = """---
+name: gamma
+description: Upstream wording. Use for /gamma.
+disable-model-invocation: true
+---
+
+# Gamma
+
+Spawn a worker for every question.
+"""
+
+    def _write_fixture(self, root: Path, skills: dict) -> "tuple[Path, Path]":
+        source = root / "pstack"
+        skill = source / "skills" / "gamma"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text(self.SOURCE, encoding="utf-8")
+        rewrites = root / "rewrites.json"
+        rewrites.write_text(
+            json.dumps({"schema_version": 1, "literal": [], "skills": skills}), encoding="utf-8"
+        )
+        return source, rewrites
+
+    def test_override_replaces_description_and_body_and_ignores_absent_skills(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(
+                root,
+                {
+                    "gamma": {
+                        "description": "Answer gamma questions.",
+                        "body": [
+                            {
+                                "from": "Spawn a worker for every question.",
+                                "to": "Answer in the current thread.",
+                            }
+                        ],
+                    },
+                    "absent": {"description": "Upstream has no skill by this name."},
+                },
+            )
+            output = root / "skills"
+            self.assertEqual(port_module.port_skills(source, output, rewrites), 1)
+            generated = (output / "gamma" / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn(
+                'description: "Explicit request or pstack routing only. Answer gamma questions."',
+                generated,
+            )
+            self.assertIn("Answer in the current thread.", generated)
+            self.assertNotIn("Spawn a worker", generated)
+            self.assertFalse((output / "absent").exists())
+
+    def test_override_can_clear_explicit_activation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(
+                root, {"gamma": {"description": "Answer gamma questions.", "explicit": False}}
+            )
+            output = root / "skills"
+            port_module.port_skills(source, output, rewrites)
+            generated = (output / "gamma" / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn('description: "Answer gamma questions."', generated)
+            self.assertNotIn("Explicit request", generated)
+            self.assertNotIn("pstack-distilled-activation", generated)
+
+    def test_override_with_stale_body_anchor_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(
+                root,
+                {"gamma": {"body": [{"from": "Text upstream rewrote.", "to": "Replacement."}]}},
+            )
+            with self.assertRaises(port_module.PortError) as raised:
+                port_module.port_skills(source, root / "skills", rewrites)
+            self.assertIn("must occur exactly once", str(raised.exception))
 
 
 if __name__ == "__main__":
