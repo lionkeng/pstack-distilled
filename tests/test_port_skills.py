@@ -285,6 +285,28 @@ Spawn a worker for every question.
             self.assertNotIn("Explicit request", generated)
             self.assertNotIn("pstack-distilled-activation", generated)
 
+    def test_require_rule_matches_lists_only_unmatched_rules(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(root, {})
+            rewrites.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "literal": [
+                            {"from": "every question", "to": "each question"},
+                            {"from": "Text upstream dropped", "to": "Replacement"},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(port_module.PortError) as raised:
+                port_module.port_skills(source, root / "skills", rewrites, require_rule_matches=True)
+            message = str(raised.exception)
+            self.assertIn("rewrites.json literal: 'Text upstream dropped'", message)
+            self.assertNotIn("'every question'", message)
+
     def test_excluded_skill_is_not_ported_or_counted(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
             root = Path(temporary)

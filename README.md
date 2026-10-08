@@ -95,10 +95,18 @@ text that replaces it. When upstream rewrites that passage, the sync fails
 instead of dropping the edit. An `explicit` value of `false` keeps a skill
 open to automatic triggering when upstream marks it explicit-only. An
 `exclude` value of `true` leaves the skill out of `skills/`, and it cannot
-appear with other keys. After
-changing conversion rules, rebuild the
-tree from the locked upstream commit and refresh the lock without pulling
-newer upstream commits:
+appear with other keys.
+
+Every `literal` rule, and every text rule in `scripts/port_skills.py`, must
+match upstream text at least once. When upstream rewords or deletes a passage,
+the sync fails and names each rule that matched nothing. Update the rule to the
+new wording, or delete it if the passage is gone. Without this check, a
+reworded passage would ship its Cursor wording unchanged. The offline tests
+pass `--allow-unmatched-rules`, because their upstream fixture holds only a few
+skills.
+
+After changing conversion rules, rebuild the tree from the locked upstream
+commit and refresh the lock without pulling newer upstream commits:
 
 ```sh
 python3 scripts/sync_upstream.py --regenerate

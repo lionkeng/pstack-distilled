@@ -94,7 +94,7 @@ Launch all matching investigators in a single message so they run concurrently. 
 Subagent config (each):
 - `worker role`: `general-purpose`
 - `model`: the `why investigators` line, default `fast-code-model`
-- `readonly`: `false` (agent mode). **Do not use readonly/Ask mode.** It strips MCP access, which disables MCP-backed investigators entirely. Investigators still shouldn't write anything.
+- Requested access: read connected sources without mutating them. Use the least privilege that still permits those reads, and do not infer authorization for writes.
 
 Each investigator gets:
 1. The base prompt from `references/investigator-prompt.md`

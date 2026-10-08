@@ -37,6 +37,9 @@ PORTABILITY_PATTERNS: Sequence[Tuple[str, re.Pattern[str]]] = (
     ("Cursor question tool", re.compile(r"\bAsk(?:User)?Question\b")),
     ("Cursor subagent field", re.compile(r"\bsubagent_type\b")),
     ("Cursor background field", re.compile(r"\brun_in_background\b")),
+    ("Cursor readonly field", re.compile(r"`readonly(?:`:|: )")),
+    ("Cursor Ask mode", re.compile(r"\bAsk mode\b")),
+    ("unshipped poteto-agent worker", re.compile(r"\bpoteto-agent\b")),
     ("Cursor loop command", re.compile(r"/loop\b")),
     ("Cursor companion plugin", re.compile(r"\bcursor-team-kit\b")),
     ("unbundled companion tooling", re.compile(r"\boptional companion tooling\b")),
@@ -56,7 +59,10 @@ PORTABILITY_PATTERNS: Sequence[Tuple[str, re.Pattern[str]]] = (
     ),
     ("dangling host PR-monitoring dependency", re.compile(r"another host PR-monitoring workflow")),
     ("malformed delegation wording", re.compile(r"delegation operation subagent")),
-    ("assumed system-prompt path", re.compile(r"path in the system prompt", re.IGNORECASE)),
+    (
+        "assumed system-prompt path",
+        re.compile(r"path in the system prompt|system prompt names", re.IGNORECASE),
+    ),
     ("assumed host task dashboard", re.compile(r"host task dashboard", re.IGNORECASE)),
     (
         "assumed nested delegation schema",

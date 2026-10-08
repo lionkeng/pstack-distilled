@@ -23,7 +23,7 @@ Mine the current conversation for durable learnings, then route them into skill 
 
 ## When to invoke
 
-Invoke when the user says "reflect" or "reflect". Skip when the conversation is trivial, off-topic, or already covered by an existing skill the parent followed correctly. One-offs are not learnings.
+Invoke when the user explicitly says "reflect". Skip when the conversation is trivial, off-topic, or already covered by an existing skill the parent followed correctly. One-offs are not learnings.
 
 ## Process
 
@@ -33,7 +33,7 @@ Use only conversation history explicitly exposed by the host for the active work
 
 ### 2. Spawn three reviewers in parallel
 
-One message, three delegation calls, `worker role: general-purpose`, with `model` set as below, agent mode (`readonly: false`). Reviewers need MCP access for context lookups (tickets, chat threads, observability traces referenced in the conversation record). Readonly strips MCPs.
+One message, three delegation calls, `worker role: general-purpose`, with `model` set as below. Grant each reviewer only the read access it needs for connected-source lookups (tickets, chat threads, observability traces referenced in the conversation record).
 
 Each reviewer and the synthesizer name a role line in `.pstack/models.md` and a default. Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the host delegation capability rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message.
 
@@ -47,7 +47,7 @@ Pass each template verbatim, substituting the conversation-record path or digest
 
 ### 3. Synthesize
 
-One delegation call, `worker role: general-purpose`, with `model` from the `reflect judgment, divergent, synthesizer` line (default `judgment-model`), agent mode (`readonly: false`). The synthesizer's quality check includes spot-verifying citations, which can require MCP access. Readonly strips MCPs. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+One delegation call, `worker role: general-purpose`, with `model` from the `reflect judgment, divergent, synthesizer` line (default `judgment-model`). Grant only the read access needed to spot-verify citations. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
 
 ### 4. Structural enforcement check
 

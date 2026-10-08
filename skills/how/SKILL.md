@@ -37,7 +37,7 @@ Decompose the question into 2 to 4 exploration angles, each a distinct slice of 
 
 - `worker role`: `general-purpose`
 - `model`: the `how explorer` line, default `fast-code-model`
-- `readonly`: `true`
+- Requested access: read-only
 
 Each explorer gets the prompt in `references/explorer-prompt.md` with its angle filled in. Then go to Step 3.
 
@@ -47,7 +47,7 @@ Explore and explain in the current thread for a simple question. Read `reference
 
 - `worker role`: `general-purpose`
 - `model`: the `how explainer` line, default `judgment-model`
-- `readonly`: `true`
+- Requested access: read-only
 
 Build its prompt from `references/explainer-prompt.md` without the explorer-findings section. Go to Step 4.
 
@@ -57,7 +57,7 @@ Once all explorers have returned, spawn one delegated worker to synthesize their
 
 - `worker role`: `general-purpose`
 - `model`: the `how explainer` line, default `judgment-model`
-- `readonly`: `true`
+- Requested access: read-only
 
 Build its prompt from `references/explainer-prompt.md` with every explorer's findings filled in.
 

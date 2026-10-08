@@ -42,10 +42,6 @@
       "to": "<host-project-history-root>/"
     },
     {
-      "from": "~/.cursor/projects/<slug>/agent-transcripts/<uuid>/<uuid>.jsonl",
-      "to": "<host-conversation-history>/<conversation-id>.jsonl"
-    },
-    {
       "from": ".cursor/worktrees/",
       "to": "<host-worktree-directory>/"
     },
@@ -54,16 +50,8 @@
       "to": "<host-temp-directory>/"
     },
     {
-      "from": "~/Library/Application Support/Cursor",
-      "to": "the host's application-support directory"
-    },
-    {
       "from": "agent-transcripts/",
       "to": "<host-conversation-history>/"
-    },
-    {
-      "from": "<agent-transcripts>",
-      "to": "<host-conversation-history>"
     },
     {
       "from": "cursor-team-kit",
@@ -74,20 +62,12 @@
       "to": "remote delegated worker"
     },
     {
-      "from": "Cursor cloud agents",
-      "to": "remote delegated workers"
-    },
-    {
       "from": "Cursor dashboard",
       "to": "host task dashboard"
     },
     {
       "from": "Cursor restart",
       "to": "host restart"
-    },
-    {
-      "from": "restart Cursor",
-      "to": "restart the host"
     },
     {
       "from": "Cursor's",
@@ -104,14 +84,6 @@
     {
       "from": "AskQuestion",
       "to": "the host's user-interaction capability"
-    },
-    {
-      "from": "AskUserQuestion",
-      "to": "the host's user-interaction capability"
-    },
-    {
-      "from": "`Task` tool",
-      "to": "the host's delegation capability"
     },
     {
       "from": "Task tool",
@@ -158,24 +130,8 @@
       "to": "execution environment: local"
     },
     {
-      "from": "claude-fable-5-1-thinking-max",
-      "to": "judgment-model"
-    },
-    {
-      "from": "claude-fable-5-thinking-max",
-      "to": "judgment-model"
-    },
-    {
-      "from": "gpt-5.6-sol-max",
-      "to": "deep-code-model"
-    },
-    {
-      "from": "grok-4.6-fast-xhigh",
-      "to": "fast-code-model"
-    },
-    {
-      "from": "claude-opus-5-thinking-xhigh",
-      "to": "independent-review-model"
+      "from": "- `readonly`: `true`",
+      "to": "- Requested access: read-only"
     },
     {
       "from": "claude-opus-5-5-xhigh",
@@ -206,24 +162,12 @@
       "to": "a shared configuration file"
     },
     {
-      "from": "always-applied rule",
-      "to": "shared configuration file"
-    },
-    {
-      "from": "always-applied",
-      "to": "shared"
-    },
-    {
       "from": "alwaysApply: true",
       "to": "schema-version: 1"
     },
     {
       "from": "todolist",
       "to": "plan or checklist"
-    },
-    {
-      "from": "@cursor-skill/poteto-mode-tools",
-      "to": "@pstack-distilled/poteto-mode-tools"
     }
   ],
   "skills": {

@@ -67,7 +67,7 @@ Commit it only when the work is ambitious enough that a reviewer needs the trail
 
 ## Audit the log against the conversation record
 
-At the end of the run, before handing back, check the log told the truth. Read this run's conversation record under the active workspace's `<host-conversation-history>/` directory (the system prompt names the path). Don't glob across `<host-project-history-root>/`. That reads unrelated private chats. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
+At the end of the run, before handing back, check the log told the truth. Read this run's conversation record under the active workspace's explicitly exposed conversation history. Never probe private storage or another workspace's history. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
 
 - Check that every row maps to a real decision or action.
 - Check that each row's evidence resolves and shows what the row claims.
@@ -77,14 +77,14 @@ Correct the log, not the story. The audit never edits or removes a row, even an 
 
 ## Cross-model review of the trail
 
-Before handing back, spawn a subagent on a different model family from the one that did the work. Self-review is not a substitute. The subagent reads the audit trail and the run's conversation record, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
+Before handing back, seek an independent review of the audit trail and conversation record when the host supports delegation. Prefer a reviewer on a different model family for genuinely fresh eyes. When independent review is unavailable, perform the same structured risk scan inline and disclose that it was self-review. This is not a redo of the work; it flags what the user should scrutinize.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the conversation record.
 - Choices that look risky in hindsight (premature, scope-creeping, papering over a symptom).
 - Gaps the user would otherwise miss on a casual skim.
 
-Every reply for a run that produced a trail ends with an "Attention" section. Lead with the reviewer's model on its own line (`reviewed by <model>`), then list each flag pointing to specific rows or moments. "No flags" is a valid value. The model name is not.
+Every reply for a run that produced a trail ends with an "Attention" section. When an independent review ran, lead with `reviewed by <model-or-role>`. Otherwise lead with `self-review only (independent reviewer unavailable)`. Then list each flag with specific evidence. "No flags" is valid.
 
 ## Reviewing the trail
 
