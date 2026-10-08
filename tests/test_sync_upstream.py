@@ -78,7 +78,6 @@ disable-model-invocation: true
 Use the Task tool from Cursor with `subagent_type: generalPurpose` and
 `run_in_background: true`. Store local output under `.cursor/skills/alpha/`.
 Read only the active workspace's `agent-transcripts/` directory.
-List candidates under `<agent-transcripts>/*.jsonl`.
 Use the control-skill path. Restacks run in cloud. When coordinating workers, nesting works to depth 3, and a nested spawn has the full Task schema including `environment`.
 """,
         )
@@ -141,7 +140,12 @@ Report comments that should be removed.
         return self._git(self.upstream, "rev-parse", "HEAD")
 
     def _sync(
-        self, *, check: bool = False, report: Optional[Path] = None, regenerate: bool = False
+        self,
+        *,
+        check: bool = False,
+        report: Optional[Path] = None,
+        regenerate: bool = False,
+        allow_unmatched_rules: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
@@ -157,6 +161,9 @@ Report comments that should be removed.
             command.append("--check")
         if regenerate:
             command.append("--regenerate")
+        if allow_unmatched_rules:
+            # The fixture upstream holds a few skills, so most real rules match nothing.
+            command.append("--allow-unmatched-rules")
         if report:
             command.extend(["--report-json", str(report)])
         return subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -200,7 +207,6 @@ Report comments that should be removed.
             self.assertNotIn(forbidden, alpha)
         self.assertIn("available-model", alpha)
         self.assertIn("<host-conversation-history>/", alpha)
-        self.assertIn("<host-conversation-history>/*.jsonl", alpha)
         beta = (self.downstream / "skills/beta/SKILL.md").read_text(encoding="utf-8")
         self.assertIn("[^1]: Explanatory prose", beta)
         lock = json.loads((self.downstream / "upstream.lock.json").read_text(encoding="utf-8"))
@@ -273,6 +279,14 @@ New portable content.
         self.assertIn("skills/gamma/SKILL.md", changes["added"])
         self.assertIn("skills/beta/SKILL.md", changes["deleted"])
         self.assertIn("skills/alpha/SKILL.md", changes["modified"])
+
+    def test_sync_fails_by_default_when_a_text_rule_matches_nothing(self) -> None:
+        before = self._snapshot_downstream()
+        failed = self._sync(allow_unmatched_rules=False)
+        self.assertEqual(failed.returncode, 2, failed.stdout)
+        self.assertIn("text rules matched nothing upstream", failed.stderr)
+        self.assertIn("SEMANTIC_REWRITES: ", failed.stderr)
+        self.assertEqual(self._snapshot_downstream(), before)
 
     def test_check_reports_drift_without_mutating(self) -> None:
         first = self._sync()

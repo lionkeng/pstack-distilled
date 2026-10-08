@@ -285,6 +285,81 @@ Spawn a worker for every question.
             self.assertNotIn("Explicit request", generated)
             self.assertNotIn("pstack-distilled-activation", generated)
 
+    def test_require_rule_matches_lists_only_unmatched_rules(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(root, {})
+            rewrites.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "literal": [
+                            {"from": "every question", "to": "each question"},
+                            {"from": "Text upstream dropped", "to": "Replacement"},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(port_module.PortError) as raised:
+                port_module.port_skills(source, root / "skills", rewrites, require_rule_matches=True)
+            message = str(raised.exception)
+            self.assertIn("rewrites.json literal: 'Text upstream dropped'", message)
+            self.assertNotIn("'every question'", message)
+
+    def test_file_rules_edit_a_converted_resource(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(
+                root,
+                {"gamma": {"files": {"references/notes.md": [{"from": "Ask the sidebar.", "to": "Ask the user."}]}}},
+            )
+            (source / "skills" / "gamma" / "references").mkdir()
+            (source / "skills" / "gamma" / "references" / "notes.md").write_text(
+                "Ask the sidebar.\n", encoding="utf-8"
+            )
+            output = root / "skills"
+            port_module.port_skills(source, output, rewrites)
+            self.assertEqual(
+                (output / "gamma" / "references" / "notes.md").read_text(encoding="utf-8"), "Ask the user.\n"
+            )
+
+    def test_file_rule_for_a_missing_file_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(
+                root, {"gamma": {"files": {"references/gone.md": [{"from": "a", "to": "b"}]}}}
+            )
+            with self.assertRaises(port_module.PortError) as raised:
+                port_module.port_skills(source, root / "skills", rewrites, require_rule_matches=True)
+            self.assertIn("names a missing file: references/gone.md", str(raised.exception))
+
+    def test_partial_fixture_skips_rules_whose_text_or_file_is_absent(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(
+                root,
+                {
+                    "gamma": {
+                        "body": [{"from": "Text this fixture lacks.", "to": "Replacement."}],
+                        "files": {"references/gone.md": [{"from": "a", "to": "b"}]},
+                    }
+                },
+            )
+            output = root / "skills"
+            self.assertEqual(port_module.port_skills(source, output, rewrites), 1)
+            self.assertIn("Spawn a worker for every question.", (output / "gamma" / "SKILL.md").read_text())
+
+    def test_file_rule_for_skill_md_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(
+                root, {"gamma": {"files": {"SKILL.md": [{"from": "a", "to": "b"}]}}}
+            )
+            with self.assertRaises(port_module.PortError) as raised:
+                port_module.port_skills(source, root / "skills", rewrites)
+            self.assertIn("other than SKILL.md", str(raised.exception))
+
     def test_excluded_skill_is_not_ported_or_counted(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
             root = Path(temporary)
@@ -318,7 +393,7 @@ Spawn a worker for every question.
                 {"gamma": {"body": [{"from": "Text upstream rewrote.", "to": "Replacement."}]}},
             )
             with self.assertRaises(port_module.PortError) as raised:
-                port_module.port_skills(source, root / "skills", rewrites)
+                port_module.port_skills(source, root / "skills", rewrites, require_rule_matches=True)
             self.assertIn("must occur exactly once", str(raised.exception))
 
 

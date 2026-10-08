@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, NamedTuple, Optional, Sequence, Set, Tuple
 
 
 RUNTIME_MARKERS = re.compile(
@@ -57,8 +57,8 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     ),
     (
         "This skill orchestrates three others: an inline mining pass (see step 1), Cursor's built-in "
-        "`create-skill` (authoring), and the **unslop** skill (prose discipline). It sequences them; "
-        "it doesn't replace them.",
+        "`create-skill` (authoring), and the **unslop** skill (prose discipline). It sequences them. "
+        "It doesn't replace them.",
         "This skill combines an inline mining pass, an Agent Skills-compatible authoring and "
         "validation workflow, and the **unslop** skill for prose discipline.",
     ),
@@ -91,17 +91,6 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     (
         "`create-skill` alone, no mining required.",
         "use the Agent Skills authoring workflow directly; no mining is required.",
-    ),
-    (
-        "the host's built-in `create-skill` skill: skill authoring process and writing guidelines.",
-        "the Agent Skills specification and the host's available authoring and validation workflow.",
-    ),
-    (
-        "**PRs.** `/deslop` the diff before commit; `/no-comments` the diff before review; apply the "
-        "**unslop** skill to the PR description and commit bodies.",
-        "**PRs.** Apply an available prose-cleanup workflow to agent-authored text before commit; "
-        "run the **no-comments** skill before review; apply the **unslop** skill to the PR "
-        "description and commit bodies.",
     ),
     (
         "**PRs.** Run `/deslop` from `cursor-team-kit` over the diff before commit. Run `/no-comments` "
@@ -155,21 +144,12 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "validation workflow.",
     ),
     (
-        "Start broad: Glob for relevant directories, Grep for key types/interfaces/class names",
-        "Start broad: enumerate relevant directories and search for key types, interfaces, and "
-        "class names",
-    ),
-    (
-        "The agent does its own exploration (Glob, Grep, Read)",
-        "The worker does its own exploration (file discovery, text search, and focused reads)",
-    ),
-    (
         "Use Read, Grep, and Glob as needed.",
         "Use focused file reads, text search, and file discovery as needed.",
     ),
     (
-        '- The user said "reflect" or "/reflect".',
-        '- The user explicitly said "reflect".',
+        'Invoke when the user says "reflect" or "/reflect".',
+        'Invoke when the user explicitly says "reflect".',
     ),
     (
         "The parent finds its own transcript file before fanning out. The system prompt names the "
@@ -199,11 +179,10 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "questions when the host supports it.",
     ),
     (
-        "Before handing back, you must spawn a subagent on a different model family from the one "
-        "that did the work. Self-review is not a substitute; the point is fresh eyes you cannot "
-        "bring yourself. The subagent reads the audit trail and the run's transcript, then flags "
-        "what the user should pay attention to. Not a redo of the work, a scan for what's "
-        "suboptimal or risky.",
+        "Before handing back, spawn a subagent on a different model family from the one that did "
+        "the work. Self-review is not a substitute. The subagent reads the audit trail and the "
+        "run's transcript, then flags what the user should pay attention to. Not a redo of the "
+        "work, a scan for what's suboptimal or risky.",
         "Before handing back, seek an independent review of the audit trail and conversation "
         "record when the host supports delegation. Prefer a reviewer on a different model family "
         "for genuinely fresh eyes. When independent review is unavailable, perform the same "
@@ -213,20 +192,17 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     (
         "Every reply for a run that produced a trail ends with an \"Attention\" section. Lead "
         "with the reviewer's model on its own line (`reviewed by <model>`), then list each flag "
-        "pointing to specific rows or moments. \"No flags\" is a valid value; the model name is "
-        "not. The self-audit asks if the log told the truth; this asks what the user should still "
-        "scrutinize even when it did.",
+        "pointing to specific rows or moments. \"No flags\" is a valid value. The model name is not.",
         "Every reply for a run that produced a trail ends with an \"Attention\" section. When an "
         "independent review ran, lead with `reviewed by <model-or-role>`. Otherwise lead with "
         "`self-review only (independent reviewer unavailable)`. Then list each flag with specific "
-        "evidence; \"No flags\" is valid. The self-audit asks if the log told the truth, while this "
-        "scan asks what the user should still scrutinize.",
+        "evidence. \"No flags\" is valid.",
     ),
     (
-        "More when needed: Xcode `DerivedData` and `iOS DeviceSupport`; "
+        "More when needed: Xcode `DerivedData` and `iOS DeviceSupport`, "
         "`~/Library/Application Support/Cursor` (`state.vscdb.backup`, and "
         "`snapshots/roots/<root>` where a `<root>` named for a folder you opened as a workspace "
-        "balloons); package caches (pnpm, uv, brew, yarn). Clear only caches the user has not said "
+        "balloons), package caches (pnpm, uv, brew, yarn). Clear only caches the user has not said "
         "to keep.",
         "More when needed: platform build caches such as Xcode `DerivedData` and "
         "`iOS DeviceSupport`, plus package caches such as pnpm, uv, brew, and yarn. Treat editor "
@@ -249,10 +225,10 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "that match a skill's documented operations",
     ),
     (
-        "- Prefer `subagent_type: \"poteto-agent\"`. `generalPurpose` is the fallback. Never use "
-        "the built-in `plan` subagent_type; it ignores this skill.",
-        "- Instruct delegated implementers to read and apply poteto-mode first. If the host cannot "
-        "preload a worker profile, include that requirement in the brief.",
+        "Explore in subagents with `subagent_type: \"poteto-agent\"` and an explicit model per the "
+        "Subagents section",
+        "Explore in delegated workers instructed to read and apply poteto-mode first, with an "
+        "explicit model per the Subagents section",
     ),
     (
         "**Just do it.** Use any MCP tool. Reversible work and external actions (team chat, ticket "
@@ -266,7 +242,7 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "**Use `subagent_type: \"poteto-agent\"` for any subagent you spawn inside a playbook step** "
         "(code-writing delegates, ad-hoc helpers). `/poteto-mode` and `poteto-agent` route through "
         "the same wrapper. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) "
-        "set their own `subagent_type` for diverse-model review; respect what the skill prescribes, "
+        "set their own `subagent_type` for diverse-model review. Respect what the skill prescribes, "
         "don't override to `poteto-agent`.",
         "**For a delegated worker inside a playbook, instruct it to read and apply poteto-mode first.** "
         "If the host cannot preload a named worker profile, include that requirement in the brief. "
@@ -278,21 +254,15 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "the least privilege needed for its assigned reads or writes",
     ),
     (
-        "One message, three `Task` calls, `subagent_type: generalPurpose`, explicit `model:` on each, "
-        "agent mode (`readonly: false`). Reviewers need MCP access for context lookups (tickets, "
-        "chat threads, observability traces referenced in the transcript); readonly strips MCPs. "
-        "The prompt forbids file writes; the parent applies edits.",
-        "Delegate three independent reviews together when supported. Give each a general-purpose "
-        "worker role and an available model suited to its lens. Grant only the read access needed "
-        "for connected-source lookups; the prompt forbids file writes and the parent applies edits.",
+        ", agent mode (`readonly: false`). Reviewers need MCP access for context lookups (tickets, "
+        "chat threads, observability traces referenced in the transcript). Readonly strips MCPs.",
+        ". Grant each reviewer only the read access it needs for connected-source lookups "
+        "(tickets, chat threads, observability traces referenced in the transcript).",
     ),
     (
-        "One `Task` call, `subagent_type: generalPurpose`, using your configured reflect-judgment "
-        "model (default `claude-fable-5-thinking-max`), agent mode (`readonly: false`). The "
-        "synthesizer's quality check includes spot-verifying citations, which can require MCP "
-        "access; readonly strips MCPs.",
-        "Delegate one synthesis pass using the configured judgment role or current model. Grant "
-        "only the read access needed to spot-verify citations.",
+        ", agent mode (`readonly: false`). The synthesizer's quality check includes spot-verifying "
+        "citations, which can require MCP access. Readonly strips MCPs.",
+        ". Grant only the read access needed to spot-verify citations.",
     ),
     (
         "`readonly`: `false` (agent mode). The synthesizer's quality check spot-verifies citations, "
@@ -317,17 +287,11 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "Never probe private storage or another workspace's history.",
     ),
     (
-        "The system prompt names the active workspace's `agent-transcripts/` directory; use that path. "
-        "Do not glob across `~/.cursor/projects/*/`. That crosses workspace boundaries and reads "
-        "private chats from unrelated projects.",
-        "Use only a conversation-history source explicitly exposed for the active workspace. "
-        "Never probe private storage or another workspace's history.",
-    ),
-    (
-        "the active workspace's `agent-transcripts/` directory (the system prompt names the path). "
-        "Don't glob across `~/.cursor/projects/*/`; that reads unrelated private chats.",
-        "the active workspace's explicitly exposed conversation history. Never probe private "
-        "storage or another workspace's history.",
+        "Read this run's transcript under the active workspace's `agent-transcripts/` directory "
+        "(the system prompt names the path). Don't glob across `~/.cursor/projects/*/`. That reads "
+        "unrelated private chats.",
+        "Read this run's transcript when the host exposes it. Never probe private storage or another "
+        "workspace's history.",
     ),
     (
         "Before spawning investigators, list the available MCPs from the Cursor environment. "
@@ -339,9 +303,8 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     ),
     (
         "- `readonly`: `false` (agent mode). **Do not use readonly/Ask mode.** It strips MCP access, "
-        "which disables MCP-backed investigators entirely. The source control investigator would "
-        "be safe in readonly, but keep modes uniform. Investigators still shouldn't write anything. "
-        "That's a posture, not a sandbox.",
+        "which disables MCP-backed investigators entirely. Investigators still shouldn't write "
+        "anything.",
         "- Requested access: read connected sources without mutating them. Use the least privilege "
         "that still permits those reads, and do not infer authorization for writes.",
     ),
@@ -352,13 +315,6 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     (
         "Open a todolist with one entry per phase before launching anything.",
         "Maintain a plan or checklist with one entry per phase before launching anything.",
-    ),
-    (
-        "Open a todolist with one entry per phase before starting. Autonomous mode without "
-        "checkpoints needs the list to show phase position and keep phases from silently disappearing.",
-        "Maintain a plan or checklist with one entry per phase before starting. Autonomous mode "
-        "without checkpoints needs the list to show phase position and keep phases from silently "
-        "disappearing.",
     ),
     (
         "Tell every subagent to order candidates by real modification time (`ls -t`) and never by "
@@ -379,7 +335,172 @@ POST_SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     ("transcripts", "conversation records"),
     ("transcript", "conversation record"),
     ("`Read` tool calls", "file reads"),
-    ("cloud_base_branch", "remote base branch"),
+)
+
+# Repair the phrases that the slash-command, create-skill, and deslop regexes
+# leave behind. These run after those regexes.
+CLEANUP_REWRITES: Sequence[Tuple[str, str]] = (
+    (
+        "follow Agent Skills authoring workflow's YAML rules",
+        "follow the Agent Skills frontmatter rules",
+    ),
+    (
+        "the prose-cleanup workflow skill from the `optional companion tooling` plugin "
+        "(prose-cleanup workflow)",
+        "an available prose-cleanup workflow",
+    ),
+    (
+        "`control-ui` or `control-cli` from `optional companion tooling`",
+        "the project's available UI or CLI verification harness",
+    ),
+    (
+        "`control-ui` or `control-cli` runtime verification (from `optional companion tooling`)",
+        "runtime verification with the project's available UI or CLI harness",
+    ),
+    (
+        "`control-cli` or `control-ui` from `optional companion tooling`",
+        "the project's available CLI or UI verification harness",
+    ),
+    (
+        "the host's built-in babysit skill",
+        "another host PR-monitoring workflow",
+    ),
+    (
+        "Read each candidate's local conversation record under the active workspace's "
+        "`<host-conversation-history>/` directory (the system prompt names this path). Do not "
+        "glob across `<host-project-history-root>/`. That crosses workspace boundaries and "
+        "reads private chats from unrelated projects.",
+        "Use only each candidate's conversation record when the host explicitly exposes it for "
+        "the active workspace. Never probe private host storage or another workspace.",
+    ),
+    (
+        "A local conversation record under the active workspace's "
+        "`<host-conversation-history>/` directory (the system prompt names the path. Do not "
+        "glob across `<host-project-history-root>/`, that crosses workspace boundaries and "
+        "reads private chats from unrelated projects)",
+        "A conversation record explicitly exposed by the host for the active workspace",
+    ),
+    (
+        "Reading local conversation records under `<host-conversation-history>/`",
+        "Reading conversation records explicitly exposed by the active host",
+    ),
+    ("the loop skill", "the host's recurring-run capability"),
+    ("parallel cloud workers", "parallel delegated workers when supported"),
+    ("the cloud concurrency limit", "the host's concurrency limit"),
+    ("Cloud agents cannot read the local store", "Remote workers may not access local-only state"),
+    ("the cloud agent's status", "the delegated worker's status"),
+    (
+        "via the relevant control skill",
+        "with the project's available verification harness",
+    ),
+    (
+        "via the matching control skill",
+        "with the project's available verification harness",
+    ),
+    ("via the control skill", "with the project's available verification harness"),
+    ("the matching control skill", "the project's available verification harness"),
+    ("through its control skill", "through its verification harness"),
+    ("the control skill", "the project's available verification harness"),
+    ("<control skill path>", "<verification harness path>"),
+    (
+        "and not another host PR-monitoring workflow, whose description matches the same words. ",
+        "Use this bundled playbook for those requests. ",
+    ),
+    (
+        "This playbook replaces another host PR-monitoring workflow for these requests, so do "
+        "not route there even though its description matches the same words.",
+        "Use this bundled playbook for these requests rather than a similarly triggered host "
+        "workflow.",
+    ),
+    (
+        "the **Babysit** playbook (`playbooks/babysit.md`), Use this bundled playbook for those "
+        "requests.",
+        "the bundled **Babysit** playbook (`playbooks/babysit.md`).",
+    ),
+    (
+        "Pull PR bodies and discussion via `gh` for any substantive commits:",
+        "When the repository is on GitHub and `gh` is available, pull PR bodies and discussion "
+        "for substantive commits. Otherwise use an available source-control connector and "
+        "record the PR-discussion gap:",
+    ),
+    (
+        "Source control is always available through git and `gh`.",
+        "Local source history is available through git in a checkout. PR discussion is "
+        "available only when `gh` or another source-control connector is configured.",
+    ),
+    ("Git history, `gh` for PRs", "Git history and an available PR connector"),
+    (
+        'Or "Not searched. This should not happen because git and `gh` are always expected."',
+        'Or "Not searched. No checkout or source-control connector was available; PR discussion '
+        'is an explicit evidence gap."',
+    ),
+    (
+        "check them with `git` and `gh`.",
+        "check local state with `git` and use `gh` only for GitHub when available; otherwise "
+        "use the host's source-control connector and report any PR-status gap.",
+    ),
+    (
+        "One specific prior chat to resume is the `session-pickup` playbook, not this.",
+        "For one specific prior conversation, use poteto-mode's `session-pickup` playbook when "
+        "it is installed. Otherwise reconstruct decisions, open work, and live state inline "
+        "from the exposed record or a user-supplied digest.",
+    ),
+    (
+        "Create `orchestrate/<project-slug>/` in the current agent's store (path in the system "
+        "prompt).",
+        "Set `ORCH_STORE` to a durable writable directory explicitly exposed by the host or "
+        "chosen in the active workspace. If it is workspace-local, keep it uncommitted. Never "
+        "guess a private host-state path. Create `<ORCH_STORE>/orchestrate/<project-slug>/`.",
+    ),
+    (
+        "Probe read-only: the ledger, `units.tsv`, `gh`, pushed branches, the delegated worker's "
+        "status in the host task dashboard.",
+        "Probe read-only using the ledger, `units.tsv`, pushed branches, `gh` when available, "
+        "and a worker-status capability when the host exposes one. Otherwise mark live worker "
+        "status unknown rather than guessing.",
+    ),
+    (
+        "the control-skill path",
+        "the project's available verification harness",
+    ),
+    (
+        "the full Task schema including `environment`",
+        "only the delegation and execution-environment options exposed by the host",
+    ),
+    (
+        "nesting works to depth 3, and a nested spawn has only the delegation and execution-"
+        "environment options exposed by the host",
+        "use nested delegation only when supported; otherwise have the coordinator spawn "
+        "workers directly or run them sequentially",
+    ),
+    (
+        "Restacks run in cloud. A local restack at this scale takes the laptop down.",
+        "Run restacks remotely when that capability is available; otherwise serialize them "
+        "locally and reduce concurrency to protect the machine.",
+    ),
+    (
+        "After a host restart: local agents are dead, cloud work is not.",
+        "After a host restart, local workers may be gone while remotely delegated work may "
+        "still be running; verify both through capabilities the host exposes.",
+    ),
+    (
+        "its spawn budget with the cloud default and the local exception list",
+        "its spawn budget, the remote-when-supported default, and the local exception list",
+    ),
+    (
+        "Verbatim paste is for cloud spawns and every resume",
+        "Verbatim paste is for remote spawns when supported and every resume",
+    ),
+    (
+        "Run a unit's verifier on a different model family from its worker.",
+        "When the host offers model choice, use a different model family for the verifier; "
+        "otherwise use an independent worker or apply the same verification rubric inline.",
+    ),
+    (
+        "A dedicated verifier agent (on a different model family than the worker)",
+        "A dedicated verifier agent (using a different model family when selectable, "
+        "otherwise an independent worker)",
+    ),
 )
 
 
@@ -517,6 +638,8 @@ class SkillOverride(NamedTuple):
     explicit: Optional[bool]
     body: Sequence[Tuple[str, str]]
     exclude: bool = False
+    # Rules for other converted files in the skill, keyed by path relative to the skill.
+    files: Mapping[str, Sequence[Tuple[str, str]]] = {}
 
 
 def _load_rewrite_config(path: Path) -> Mapping[str, object]:
@@ -543,20 +666,36 @@ def _load_rewrites(path: Path) -> Sequence[Tuple[str, str]]:
     return rewrites
 
 
+def _parse_exact_rules(value: object, where: str) -> List[Tuple[str, str]]:
+    if not isinstance(value, list):
+        raise PortError(f"{where} must be a list of from/to rules")
+    rules: List[Tuple[str, str]] = []
+    for index, rule in enumerate(value):
+        if (
+            not isinstance(rule, Mapping)
+            or not isinstance(rule.get("from"), str)
+            or not rule["from"]
+            or not isinstance(rule.get("to"), str)
+        ):
+            raise PortError(f"{where} rule {index} must contain a non-empty from and a to string")
+        rules.append((rule["from"], rule["to"]))
+    return rules
+
+
 def _load_skill_overrides(path: Path) -> Mapping[str, SkillOverride]:
-    """Per-skill description and body edits, or an exclusion, keyed by upstream skill name.
+    """Per-skill description and text edits, or an exclusion, keyed by upstream skill name.
 
     Overrides for skills absent upstream are ignored so the same configuration
-    serves partial fixtures; a body rule whose text is missing fails in
-    ``_apply_body_override`` so upstream rewrites surface instead of dropping
-    the edit silently.
+    serves partial fixtures. In strict mode, which every real sync uses, a body
+    or file rule whose text or file is missing fails in ``_apply_exact_rules``
+    so upstream rewrites surface instead of dropping the edit silently.
     """
     raw = _load_rewrite_config(path)
     overrides: Dict[str, SkillOverride] = {}
     for name, item in raw.get("skills", {}).items():
         if not isinstance(item, Mapping):
             raise PortError(f"{path}: skill override {name!r} must be a JSON object")
-        unknown = sorted(set(item) - {"description", "explicit", "body", "exclude"})
+        unknown = sorted(set(item) - {"description", "explicit", "body", "files", "exclude"})
         if unknown:
             raise PortError(f"{path}: skill override {name!r} has unsupported keys: {', '.join(unknown)}")
         exclude = item.get("exclude", False)
@@ -570,282 +709,98 @@ def _load_skill_overrides(path: Path) -> Mapping[str, SkillOverride]:
         explicit = item.get("explicit")
         if explicit is not None and not isinstance(explicit, bool):
             raise PortError(f"{path}: skill override {name!r} explicit must be true or false")
-        rules = item.get("body", [])
-        if not isinstance(rules, list):
-            raise PortError(f"{path}: skill override {name!r} body must be a list of from/to rules")
-        body: List[Tuple[str, str]] = []
-        for index, rule in enumerate(rules):
-            if (
-                not isinstance(rule, Mapping)
-                or not isinstance(rule.get("from"), str)
-                or not rule["from"]
-                or not isinstance(rule.get("to"), str)
-            ):
+        body = _parse_exact_rules(item.get("body", []), f"{path}: skill override {name!r} body")
+        raw_files = item.get("files", {})
+        if not isinstance(raw_files, Mapping):
+            raise PortError(f"{path}: skill override {name!r} files must map relative paths to rules")
+        files: Dict[str, List[Tuple[str, str]]] = {}
+        for relative, rules in raw_files.items():
+            parts = Path(relative).parts
+            if Path(relative).is_absolute() or ".." in parts or relative == "SKILL.md":
                 raise PortError(
-                    f"{path}: skill override {name!r} body rule {index} must contain a non-empty from and a to string"
+                    f"{path}: skill override {name!r} file {relative!r} must be a relative path other "
+                    "than SKILL.md, which body rules cover"
                 )
-            body.append((rule["from"], rule["to"]))
+            files[relative] = _parse_exact_rules(rules, f"{path}: skill override {name!r} file {relative!r}")
         overrides[name] = SkillOverride(
-            description=description, explicit=explicit, body=body, exclude=exclude
+            description=description, explicit=explicit, body=body, exclude=exclude, files=files
         )
     return overrides
 
 
-def _apply_body_override(body: str, rules: Sequence[Tuple[str, str]], source: Path) -> str:
+def _apply_exact_rules(
+    body: str, rules: Sequence[Tuple[str, str]], source: Path, require_match: bool
+) -> str:
     for old, new in rules:
         occurrences = body.count(old)
+        if occurrences == 0 and not require_match:
+            continue
         if occurrences != 1:
             raise PortError(
-                f"{source}: skill override text must occur exactly once in the converted body, "
+                f"{source}: skill override text must occur exactly once in the converted text, "
                 f"found {occurrences}: {old[:80]!r}"
             )
         body = body.replace(old, new)
     return body
 
 
-def _rewrite_text(text: str, rewrites: Sequence[Tuple[str, str]], skill_names: Sequence[str]) -> str:
-    for old, new in SEMANTIC_REWRITES:
-        text = text.replace(old, new)
-    for old, new in rewrites:
-        text = text.replace(old, new)
-    for old, new in POST_SEMANTIC_REWRITES:
-        text = text.replace(old, new)
+class Rewriter:
+    """Apply the text rules to converted prose and record which rules matched.
 
-    # Remove slash-command syntax only when it is an invocation, not a file path.
-    if skill_names:
-        command_names = "|".join(re.escape(name) for name in sorted(skill_names, key=len, reverse=True))
-        text = re.sub(rf"(?<![.\w/>])/({command_names})\b", r"\1", text)
-    # These are optional Cursor companion workflows, not portable dependencies.
-    # Keep their intent while avoiding an unbundled skill name or slash command.
-    text = re.sub(
-        r"(?:(?:Cursor's|the host's) built-in )?`?create-skill`?(?: skill)?",
-        "Agent Skills authoring workflow",
-        text,
-        flags=re.IGNORECASE,
-    )
-    text = re.sub(r"`?/?deslop`?", "prose-cleanup workflow", text)
-    post_rewrites = (
-        (
-            "Drafts or revises a personal -mode skill via Agent Skills authoring workflow + unslop",
-            "Drafts or revises a personal -mode skill with an Agent Skills-compatible authoring "
-            "workflow and unslop",
-        ),
-        (
-            "follow Agent Skills authoring workflow's YAML rules",
-            "follow the Agent Skills frontmatter rules",
-        ),
-        (
-            "the **Agent Skills authoring workflow** skill (the host's built-in for authoring "
-            "SKILL.md files)",
-            "an Agent Skills-compatible authoring and validation workflow",
-        ),
-        (
-            "the prose-cleanup workflow skill from the `optional companion tooling` plugin "
-            "(`prose-cleanup workflow`)",
-            "an available prose-cleanup workflow",
-        ),
-        (
-            "the prose-cleanup workflow skill from the `optional companion tooling` plugin "
-            "(prose-cleanup workflow)",
-            "an available prose-cleanup workflow",
-        ),
-        (
-            "`control-ui` or `control-cli` from `optional companion tooling`",
-            "the project's available UI or CLI verification harness",
-        ),
-        (
-            "`control-cli` or `control-ui` runtime verification (from `optional companion tooling`)",
-            "runtime verification with the project's available UI or CLI harness",
-        ),
-        (
-            "`control-ui` or `control-cli` runtime verification (from `optional companion tooling`)",
-            "runtime verification with the project's available UI or CLI harness",
-        ),
-        (
-            "`control-cli` or `control-ui` from `optional companion tooling`",
-            "the project's available CLI or UI verification harness",
-        ),
-        (
-            "Browser / Electron / Web UIs: the `control-ui` skill from the `optional companion "
-            "tooling` plugin.",
-            "Browser / Electron / Web UIs: use the project's available UI verification harness.",
-        ),
-        (
-            "CLIs and TUIs: the `control-cli` skill from the `optional companion tooling` plugin.",
-            "CLIs and TUIs: use the project's available CLI verification harness.",
-        ),
-        (
-            "the host's built-in **babysit** skill",
-            "another host PR-monitoring workflow",
-        ),
-        (
-            "the host's built-in babysit skill",
-            "another host PR-monitoring workflow",
-        ),
-        (
-            "Read each candidate's local conversation record under the active workspace's "
-            "`<host-conversation-history>/` directory (the system prompt names this path). Do not "
-            "glob across `<host-project-history-root>/`; that crosses workspace boundaries and "
-            "reads private chats from unrelated projects.",
-            "Use only each candidate's conversation record when the host explicitly exposes it for "
-            "the active workspace. Never probe private host storage or another workspace.",
-        ),
-        (
-            "A local conversation record under the active workspace's "
-            "`<host-conversation-history>/` directory (the system prompt names the path; do not "
-            "glob across `<host-project-history-root>/`, that crosses workspace boundaries and "
-            "reads private chats from unrelated projects)",
-            "A conversation record explicitly exposed by the host for the active workspace",
-        ),
-        (
-            "reading local conversation records under `<host-conversation-history>/`",
-            "reading conversation records explicitly exposed by the active host",
-        ),
-        ("delegation operation subagent", "delegated worker"),
-        ("the loop skill", "the host's recurring-run capability"),
-        ("parallel cloud workers", "parallel delegated workers when supported"),
-        ("the cloud concurrency limit", "the host's concurrency limit"),
-        ("Cloud agents cannot read the local store", "Remote workers may not access local-only state"),
-        ("the cloud agent's status", "the delegated worker's status"),
-        ("the cloud environment forces", "the remote execution model requires"),
-        ("a cloud agent", "a remote worker"),
-        ("cloud-agent status / liveness probe", "delegated-worker status or liveness probe"),
-        (
-            "a cloud-sleeper wake chain (a sleeping cloud agent that re-arms its own wake)",
-            "the host's recurring-run capability with a re-armed wake or heartbeat",
-        ),
-        (
-            "via the relevant control skill",
-            "with the project's available verification harness",
-        ),
-        (
-            "via the matching control skill",
-            "with the project's available verification harness",
-        ),
-        ("via the control skill", "with the project's available verification harness"),
-        ("the matching control skill", "the project's available verification harness"),
-        ("through its control skill", "through its verification harness"),
-        ("the control skill", "the project's available verification harness"),
-        ("No control skill", "No verification harness"),
-        ("no control skill", "no verification harness"),
-        ("<control skill path>", "<verification harness path>"),
-        ('"make a control skill for this repo"', '"make a verification skill for this repo"'),
-        (
-            "and not another host PR-monitoring workflow, whose description matches the same words. ",
-            "Use this bundled playbook for those requests. ",
-        ),
-        (
-            "This playbook replaces another host PR-monitoring workflow for these requests, so do "
-            "not route there even though its description matches the same words.",
-            "Use this bundled playbook for these requests rather than a similarly triggered host "
-            "workflow.",
-        ),
-        (
-            "After opening, run another host PR-monitoring workflow",
-            "After opening, follow `playbooks/babysit.md` to monitor checks and review feedback",
-        ),
-        (
-            "another host PR-monitoring workflow after opening the PR",
-            "the bundled Babysit playbook after opening the PR",
-        ),
-        (
-            "the **Babysit** playbook (`playbooks/babysit.md`), Use this bundled playbook for those "
-            "requests.",
-            "the bundled **Babysit** playbook (`playbooks/babysit.md`).",
-        ),
-        (
-            "`gh pr view <number>` before referencing PR status.",
-            "On GitHub, use `gh pr view <number>` before referencing PR status when `gh` is "
-            "available; otherwise use the host's source-control connector or state that status "
-            "could not be verified.",
-        ),
-        (
-            "Pull PR bodies and discussion via `gh` for any substantive commits:",
-            "When the repository is on GitHub and `gh` is available, pull PR bodies and discussion "
-            "for substantive commits. Otherwise use an available source-control connector and "
-            "record the PR-discussion gap:",
-        ),
-        (
-            "Source control is always available through git and `gh`.",
-            "Local source history is available through git in a checkout. PR discussion is "
-            "available only when `gh` or another source-control connector is configured.",
-        ),
-        ("Git history, `gh` for PRs", "Git history and an available PR connector"),
-        (
-            'Or "Not searched. This should not happen because git and `gh` are always expected."',
-            'Or "Not searched. No checkout or source-control connector was available; PR discussion '
-            'is an explicit evidence gap."',
-        ),
-        (
-            "check them with `git` and `gh`.",
-            "check local state with `git` and use `gh` only for GitHub when available; otherwise "
-            "use the host's source-control connector and report any PR-status gap.",
-        ),
-        (
-            "One specific prior chat to resume is the `session-pickup` playbook, not this.",
-            "For one specific prior conversation, use poteto-mode's `session-pickup` playbook when "
-            "it is installed. Otherwise reconstruct decisions, open work, and live state inline "
-            "from the exposed record or a user-supplied digest.",
-        ),
-        (
-            "Create `orchestrate/<project-slug>/` in the current agent's store (path in the system "
-            "prompt).",
-            "Set `ORCH_STORE` to a durable writable directory explicitly exposed by the host or "
-            "chosen in the active workspace. If it is workspace-local, keep it uncommitted. Never "
-            "guess a private host-state path. Create `<ORCH_STORE>/orchestrate/<project-slug>/`.",
-        ),
-        (
-            "Probe read-only: the ledger, `units.tsv`, `gh`, pushed branches, the delegated worker's "
-            "status in the host task dashboard.",
-            "Probe read-only using the ledger, `units.tsv`, pushed branches, `gh` when available, "
-            "and a worker-status capability when the host exposes one. Otherwise mark live worker "
-            "status unknown rather than guessing.",
-        ),
-        (
-            "the control-skill path",
-            "the project's available verification harness",
-        ),
-        (
-            "the full Task schema including `environment`",
-            "only the delegation and execution-environment options exposed by the host",
-        ),
-        (
-            "nesting works to depth 3, and a nested spawn has only the delegation and execution-"
-            "environment options exposed by the host",
-            "use nested delegation only when supported; otherwise have the coordinator spawn "
-            "workers directly or run them sequentially",
-        ),
-        (
-            "Restacks run in cloud; a local restack at this scale takes the laptop down.",
-            "Run restacks remotely when that capability is available; otherwise serialize them "
-            "locally and reduce concurrency to protect the machine.",
-        ),
-        (
-            "After a host restart: local agents are dead, cloud work is not.",
-            "After a host restart, local workers may be gone while remotely delegated work may "
-            "still be running; verify both through capabilities the host exposes.",
-        ),
-        (
-            "its spawn budget with the cloud default and the local exception list",
-            "its spawn budget, the remote-when-supported default, and the local exception list",
-        ),
-        (
-            "verbatim paste is for cloud spawns and every resume",
-            "verbatim paste is for remote spawns when supported and every resume",
-        ),
-        (
-            "Run a unit's verifier on a different model family from its worker.",
-            "When the host offers model choice, use a different model family for the verifier; "
-            "otherwise use an independent worker or apply the same verification rubric inline.",
-        ),
-        (
-            "a dedicated verifier agent (on a different model family than the worker)",
-            "a dedicated verifier agent (using a different model family when selectable, "
-            "otherwise an independent worker)",
-        ),
-    )
-    for old, new in post_rewrites:
-        text = text.replace(old, new)
+    A rule that never matches usually means upstream reworded its passage, so
+    the Cursor-specific wording it targeted now ships unconverted.
+    """
+
+    def __init__(self, literal: Sequence[Tuple[str, str]], skill_names: Sequence[str]) -> None:
+        self._rules: Mapping[str, Sequence[Tuple[str, str]]] = {
+            "SEMANTIC_REWRITES": SEMANTIC_REWRITES,
+            "rewrites.json literal": literal,
+            "POST_SEMANTIC_REWRITES": POST_SEMANTIC_REWRITES,
+            "CLEANUP_REWRITES": CLEANUP_REWRITES,
+        }
+        self._skill_names = skill_names
+        self._matched: Set[Tuple[str, int]] = set()
+
+    def unmatched(self) -> List[str]:
+        return [
+            f"{label}: {old[:100]!r}"
+            for label, rules in self._rules.items()
+            for index, (old, _) in enumerate(rules)
+            if (label, index) not in self._matched
+        ]
+
+    def _apply(self, label: str, text: str) -> str:
+        for index, (old, new) in enumerate(self._rules[label]):
+            if old in text:
+                self._matched.add((label, index))
+                text = text.replace(old, new)
+        return text
+
+    def rewrite(self, text: str) -> str:
+        text = self._apply("SEMANTIC_REWRITES", text)
+        text = self._apply("rewrites.json literal", text)
+        text = self._apply("POST_SEMANTIC_REWRITES", text)
+
+        # Remove slash-command syntax only when it is an invocation, not a file path.
+        if self._skill_names:
+            command_names = "|".join(
+                re.escape(name) for name in sorted(self._skill_names, key=len, reverse=True)
+            )
+            text = re.sub(rf"(?<![.\w/>])/({command_names})\b", r"\1", text)
+        # These are optional Cursor companion workflows, not portable dependencies.
+        # Keep their intent while avoiding an unbundled skill name or slash command.
+        text = re.sub(
+            r"(?:(?:Cursor's|the host's) built-in )?`?create-skill`?(?: skill)?",
+            "Agent Skills authoring workflow",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(r"`?/?deslop`?", "prose-cleanup workflow", text)
+        text = self._apply("CLEANUP_REWRITES", text)
+        return _rewrite_terms(text)
+
+
+def _rewrite_terms(text: str) -> str:
     text = re.sub(r"\bcontrol-skill\b", "verification harness", text, flags=re.IGNORECASE)
     text = re.sub(r"\bControl skill\b", "Verification harness", text)
     text = re.sub(r"\bcontrol skill\b", "verification harness", text)
@@ -991,8 +946,7 @@ def _require_check_plan_marker_in_template(output_root: Path) -> None:
 def _copy_resource(
     source: Path,
     destination: Path,
-    rewrites: Sequence[Tuple[str, str]],
-    skill_names: Sequence[str],
+    rewriter: Rewriter,
 ) -> None:
     if source.is_symlink():
         raise PortError(f"{source}: source symlinks are not imported")
@@ -1010,7 +964,7 @@ def _copy_resource(
         if source.parts[-3:] == ("poteto-mode", "playbooks", "autopilot-full.md"):
             text = _safe_autopilot_merge(text)
         if source.suffix.lower() == ".md":
-            text = _rewrite_text(text, rewrites, skill_names)
+            text = rewriter.rewrite(text)
         else:
             # Do not rewrite source code as prose. Only the package namespace is a
             # safe mechanical change; host-path code receives an explicit override.
@@ -1059,8 +1013,7 @@ def _remove_cross_skill_links(output_root: Path) -> None:
 def _port_comment_reviewer(
     pstack_root: Path,
     no_comments_root: Path,
-    rewrites: Sequence[Tuple[str, str]],
-    skill_names: Sequence[str],
+    rewriter: Rewriter,
 ) -> None:
     source = pstack_root / "agents" / "comment-sicko.md"
     if source.is_symlink() or source.parent.is_symlink():
@@ -1070,13 +1023,24 @@ def _port_comment_reviewer(
     _, body = _split_frontmatter(source.read_text(encoding="utf-8"), source)
     body = body.replace("# Comment Sicko", "# Comment reviewer lens")
     body = body.replace("My first output when spawned is exactly this.\n\nYes... Ha ha ha... Yes!\n\n", "")
-    body = _rewrite_text(body, rewrites, skill_names)
+    body = rewriter.rewrite(body)
     destination = no_comments_root / "references" / "comment-reviewer.md"
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(body.rstrip() + "\n", encoding="utf-8")
 
 
-def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> int:
+def port_skills(
+    pstack_root: Path,
+    output_root: Path,
+    rewrites_path: Path,
+    require_rule_matches: bool = False,
+) -> int:
+    """Convert upstream skills into ``output_root`` and return the number converted.
+
+    With ``require_rule_matches``, fail when a text rule matched nothing or a
+    body or file rule found no text or file. Only a full upstream tree can
+    satisfy that; partial test fixtures leave it off.
+    """
     source_skills = pstack_root / "skills"
     if source_skills.is_symlink():
         raise PortError(f"{source_skills}: source skills directory cannot be a symlink")
@@ -1101,6 +1065,7 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
     skill_dirs = [
         path for path in skill_dirs if not (path.name in overrides and overrides[path.name].exclude)
     ]
+    rewriter = Rewriter(rewrites, skill_names)
 
     for source_skill in skill_dirs:
         skill_name = source_skill.name
@@ -1117,7 +1082,7 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
         had_runtime_markers = bool(
             RUNTIME_MARKERS.search(source_body) or VENDOR_MODEL_SLUG.search(source_body)
         )
-        body = _rewrite_text(source_body, rewrites, skill_names)
+        body = rewriter.rewrite(source_body)
 
         if skill_name == "no-comments":
             original = (
@@ -1135,7 +1100,7 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
 
         override = overrides.get(skill_name)
         if override is not None:
-            body = _apply_body_override(body, override.body, skill_file)
+            body = _apply_exact_rules(body, override.body, skill_file, require_rule_matches)
             if override.explicit is not None:
                 explicit = override.explicit
 
@@ -1147,7 +1112,7 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
         if override is not None and override.description is not None:
             portable_description = override.description
         else:
-            portable_description = _rewrite_text(description, rewrites, skill_names)
+            portable_description = rewriter.rewrite(description)
             if skill_name == "no-comments":
                 portable_description = portable_description.replace(
                     "Spawn Comment Sicko",
@@ -1210,13 +1175,29 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
             if source == skill_file or source.is_dir():
                 continue
             relative = source.relative_to(source_skill)
-            _copy_resource(source, destination_skill / relative, rewrites, skill_names)
+            _copy_resource(source, destination_skill / relative, rewriter)
+
+        for relative_name, rules in (override.files if override is not None else {}).items():
+            target = destination_skill / relative_name
+            if not target.is_file():
+                if not require_rule_matches:
+                    continue
+                raise PortError(f"{source_skill}: skill override names a missing file: {relative_name}")
+            converted = target.read_text(encoding="utf-8")
+            target.write_text(
+                _apply_exact_rules(converted, rules, target, require_rule_matches), encoding="utf-8"
+            )
 
     no_comments = output_root / "no-comments"
     if no_comments.is_dir():
-        _port_comment_reviewer(pstack_root, no_comments, rewrites, skill_names)
+        _port_comment_reviewer(pstack_root, no_comments, rewriter)
     _remove_cross_skill_links(output_root)
     _require_check_plan_marker_in_template(output_root)
+    unmatched = rewriter.unmatched()
+    if require_rule_matches and unmatched:
+        raise PortError(
+            "text rules matched nothing upstream; update or delete them:\n- " + "\n- ".join(unmatched)
+        )
     return len(skill_dirs)
 
 

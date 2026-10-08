@@ -2,6 +2,18 @@
   "schema_version": 1,
   "literal": [
     {
+      "from": "\"/loop until X\"",
+      "to": "\"keep going until X\""
+    },
+    {
+      "from": "`/loop` per component until the diff is zero.",
+      "to": "Repeat per component until the diff is zero, using the host's recurring-run capability for long runs."
+    },
+    {
+      "from": "(a built-in, not a pstack skill)",
+      "to": "(a host feature, not a pstack skill; without one, poll in the active session)"
+    },
+    {
       "from": "Cursor's `/loop` command",
       "to": "the host's recurring-run capability"
     },
@@ -42,28 +54,20 @@
       "to": "<host-project-history-root>/"
     },
     {
-      "from": "~/.cursor/projects/<slug>/agent-transcripts/<uuid>/<uuid>.jsonl",
-      "to": "<host-conversation-history>/<conversation-id>.jsonl"
-    },
-    {
       "from": ".cursor/worktrees/",
       "to": "<host-worktree-directory>/"
+    },
+    {
+      "from": "NOTES_DATA_DIR=/tmp/notes-verify-$RUN_ID",
+      "to": "NOTES_DATA_DIR=\"${TMPDIR:-/tmp}/notes-verify-$RUN_ID\""
     },
     {
       "from": "/tmp/",
       "to": "<host-temp-directory>/"
     },
     {
-      "from": "~/Library/Application Support/Cursor",
-      "to": "the host's application-support directory"
-    },
-    {
       "from": "agent-transcripts/",
       "to": "<host-conversation-history>/"
-    },
-    {
-      "from": "<agent-transcripts>",
-      "to": "<host-conversation-history>"
     },
     {
       "from": "cursor-team-kit",
@@ -74,20 +78,12 @@
       "to": "remote delegated worker"
     },
     {
-      "from": "Cursor cloud agents",
-      "to": "remote delegated workers"
-    },
-    {
       "from": "Cursor dashboard",
       "to": "host task dashboard"
     },
     {
       "from": "Cursor restart",
       "to": "host restart"
-    },
-    {
-      "from": "restart Cursor",
-      "to": "restart the host"
     },
     {
       "from": "Cursor's",
@@ -104,14 +100,6 @@
     {
       "from": "AskQuestion",
       "to": "the host's user-interaction capability"
-    },
-    {
-      "from": "AskUserQuestion",
-      "to": "the host's user-interaction capability"
-    },
-    {
-      "from": "`Task` tool",
-      "to": "the host's delegation capability"
     },
     {
       "from": "Task tool",
@@ -158,24 +146,8 @@
       "to": "execution environment: local"
     },
     {
-      "from": "claude-fable-5-1-thinking-max",
-      "to": "judgment-model"
-    },
-    {
-      "from": "claude-fable-5-thinking-max",
-      "to": "judgment-model"
-    },
-    {
-      "from": "gpt-5.6-sol-max",
-      "to": "deep-code-model"
-    },
-    {
-      "from": "grok-4.6-fast-xhigh",
-      "to": "fast-code-model"
-    },
-    {
-      "from": "claude-opus-5-thinking-xhigh",
-      "to": "independent-review-model"
+      "from": "- `readonly`: `true`",
+      "to": "- Requested access: read-only"
     },
     {
       "from": "claude-opus-5-5-xhigh",
@@ -186,32 +158,12 @@
       "to": "fast-code-model"
     },
     {
-      "from": "Families go by prefix: `claude-*` and `grok-*`.",
-      "to": "Families go by the slug's vendor prefix."
-    },
-    {
-      "from": "gpt-4o",
-      "to": "available-multimodal-model"
-    },
-    {
-      "from": "gpt-4",
-      "to": "available-model"
-    },
-    {
-      "from": "/loop",
-      "to": "recurring-run capability"
+      "from": "we renamed `gpt-4` to `gpt-4o` in `encodingForModel`",
+      "to": "we renamed `loadConfig` to `loadSettings` in `bootstrap.ts`"
     },
     {
       "from": "an always-applied rule",
       "to": "a shared configuration file"
-    },
-    {
-      "from": "always-applied rule",
-      "to": "shared configuration file"
-    },
-    {
-      "from": "always-applied",
-      "to": "shared"
     },
     {
       "from": "alwaysApply: true",
@@ -222,8 +174,100 @@
       "to": "plan or checklist"
     },
     {
-      "from": "@cursor-skill/poteto-mode-tools",
-      "to": "@pstack-distilled/poteto-mode-tools"
+      "from": "terminal transcripts",
+      "to": "captured terminal output"
+    },
+    {
+      "from": "Bugbot or the agentic security review commented",
+      "to": "An automated review bot such as Bugbot, or an automated security review, commented"
+    },
+    {
+      "from": "address the bugbot comments",
+      "to": "address the review-bot comments"
+    },
+    {
+      "from": "every Bugbot and security-reviewer comment",
+      "to": "every review-bot and security-reviewer comment"
+    },
+    {
+      "from": "Bugbot triage done.",
+      "to": "Review-bot triage done."
+    },
+    {
+      "from": "skeptical Bugbot triage",
+      "to": "skeptical review-bot triage"
+    },
+    {
+      "from": "**Bugbot is triaged skeptically, always.**",
+      "to": "**Review bots such as Bugbot are triaged skeptically, always.**"
+    },
+    {
+      "from": "\"Bugbot flagged regex backtracking on May 2\"",
+      "to": "\"the review bot flagged regex backtracking on May 2\""
+    },
+    {
+      "from": "omit Task `model`",
+      "to": "leave the model unset on the delegation call"
+    },
+    {
+      "from": "<Task as a verb phrase>",
+      "to": "<the PR's change as a verb phrase>"
+    },
+    {
+      "from": "Transcript mtime is not liveness.",
+      "to": "A conversation record's modification time is not liveness."
+    },
+    {
+      "from": "four todo items",
+      "to": "four checklist items"
+    },
+    {
+      "from": "as todos",
+      "to": "as checklist items"
+    },
+    {
+      "from": "in dynamic mode",
+      "to": "on a self-paced cadence"
+    },
+    {
+      "from": "and store reports",
+      "to": "and reports in durable storage"
+    },
+    {
+      "from": "pass `cloud_base_branch`.",
+      "to": "name that branch in the brief."
+    },
+    {
+      "from": "readonly judge",
+      "to": "read-only judge"
+    },
+    {
+      "from": "It may require `mcp_auth`.",
+      "to": "It may require sign-in through the host's MCP authentication flow."
+    },
+    {
+      "from": "open files, recent edits, cursor location, ",
+      "to": "open files or selection when the host exposes them, recent edits, "
+    },
+    {
+      "from": "the rule or that line is missing",
+      "to": "`.pstack/models.md` or that line is missing"
+    },
+    {
+      "from": "the rule or the line is missing",
+      "to": "`.pstack/models.md` or the line is missing"
+    },
+    {
+      "from": "If it rejects the default, use the closest valid slug of the same family from its error message.",
+      "to": "Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the worker runs on the current model."
+    },
+    {
+      "from": "the `/setup-pstack` rule",
+      "to": "`.pstack/models.md`, which `setup-pstack` writes,"
+    },
+    {
+      "from": "pstack/skills/",
+      "to": "<pstack-skills-directory>/"
     }
   ],
   "skills": {
@@ -231,7 +275,13 @@
       "description": "Design types, interfaces, and module structure before implementation."
     },
     "arena": {
-      "description": "Build independent candidates for the same task and combine their strongest parts."
+      "description": "Build independent candidates for the same task and combine their strongest parts.",
+      "body": [
+        {
+          "from": "If the host delegation capability rejects a configured entry, run that seat on its family's default and say so. Families go by prefix: `claude-*` and `grok-*`. With no family match, use `judgment-model`. If it rejects a default, use the closest valid slug of the same family from its error message.",
+          "to": "If the host delegation capability rejects a configured entry, run that seat on `judgment-model` and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the seat runs on the current model."
+        }
+      ]
     },
     "automate-me": {
       "description": "Create or update a personal working-style skill from the user's preferences and evidence."
@@ -265,10 +315,19 @@
       ]
     },
     "interrogate": {
-      "description": "Challenge code or design with independent adversarial reviewers."
+      "description": "Challenge code or design with independent adversarial reviewers.",
+      "body": [
+        {
+          "from": "run that reviewer on the table default of its family and say so. Families go by prefix: `claude-*` and `grok-*`. With no family match, use Reviewer A's default. If it rejects a table default, check the valid slugs in the host delegation capability's error message, pick the closest equivalent (prefer the same family and reasoning tier), spawn with it, and open a separate PR to update the default table.",
+          "to": "run that reviewer on Reviewer A's default and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the reviewer runs on the current model."
+        }
+      ]
     },
     "maintain-verification-skill": {
       "description": "Audit a project verification skill against current source and observable behavior."
+    },
+    "make-bot-ui": {
+      "exclude": true
     },
     "no-comments": {
       "description": "Review comments for removal or replacement with enforceable constraints."
@@ -277,7 +336,71 @@
       "exclude": true
     },
     "poteto-mode": {
-      "description": "Apply poteto working-style preferences for concise communication, focused changes, and verification."
+      "description": "Apply poteto working-style preferences for concise communication, focused changes, and verification.",
+      "files": {
+        "references/bugbot-triage.md": [
+          {
+            "from": "# Bugbot triage",
+            "to": "# Review-bot triage"
+          },
+          {
+            "from": "handles Bugbot or review-automation comments.",
+            "to": "handles comments from Bugbot or another automated reviewer. The patterns below come from Bugbot history and apply to any automated reviewer."
+          }
+        ],
+        "playbooks/autopilot-full.md": [
+          {
+            "from": "with the project's available verification harness, such as the project's available CLI or UI verification harness, or a named driver where none exists",
+            "to": "with the project's available CLI or UI verification harness, or a named driver where none exists"
+          }
+        ],
+        "playbooks/multi-phase-plan.md": [
+          {
+            "from": "write the file under the agent store's `docs/`.",
+            "to": "write the file to an uncommitted `docs/` directory in the workspace."
+          },
+          {
+            "from": "- [ ] Run prose-cleanup workflow before each commit",
+            "to": "- [ ] Apply an available prose-cleanup workflow before each commit"
+          },
+          {
+            "from": "only through the project's available verification harness's commands.",
+            "to": "only through the verification harness commands."
+          }
+        ],
+        "playbooks/opening-a-pr.md": [
+          {
+            "from": "so set `draft: false` on every creation call through it.",
+            "to": "so make every creation call through it open the PR as ready."
+          },
+          {
+            "from": "runs `interrogate`, prose-cleanup workflow, and `no-comments`",
+            "to": "runs `interrogate`, an available prose-cleanup workflow, and `no-comments`"
+          }
+        ],
+        "playbooks/shipping.md": [
+          {
+            "from": "with the project's available verification harness (such as the project's available UI or CLI verification harness)",
+            "to": "with the project's available UI or CLI verification harness"
+          }
+        ],
+        "playbooks/worktree-cleanup.md": [
+          {
+            "from": "Get that set from the user or sidebar and cross-check every candidate.",
+            "to": "Get that set from the user, or from the host's session list when it has one, and cross-check every candidate."
+          },
+          {
+            "from": "and those are in use even when their names never hit the sidebar.",
+            "to": "and those are in use even when no session list shows their names."
+          }
+        ],
+        "scripts/orch/orch.test.ts": [
+          {
+            "from": "verifier: \"opus\",",
+            "to": "verifier: \"independent-verifier\","
+          }
+        ]
+      }
     },
     "principle-attack-the-premise": {
       "description": "Question a shared premise after two fixes built on it fail the same check."
@@ -352,21 +475,67 @@
       "description": "Model valid states and checked external inputs in a static type system."
     },
     "recall": {
-      "description": "Reconstruct recent work from available conversation history and repository evidence."
+      "description": "Reconstruct recent work from available conversation history and repository evidence.",
+      "body": [
+        {
+          "from": "read the full conversation record, not just a trimmed local copy.",
+          "to": "read the full conversation record when the host exposes one, not a summary."
+        }
+      ]
     },
     "reflect": {
-      "description": "Review conversation evidence for lessons and propose targeted skill improvements."
+      "description": "Review conversation evidence for lessons and propose targeted skill improvements.",
+      "body": [
+        {
+          "from": "hand to Agent Skills authoring workflow and run its draft",
+          "to": "hand it to the Agent Skills authoring workflow and run its draft"
+        },
+        {
+          "from": "hand to Agent Skills authoring workflow and run its description",
+          "to": "hand it to the Agent Skills authoring workflow and run its description"
+        }
+      ]
     },
     "setup-pstack": {
       "body": [
         {
           "from": "So `unlimited` turns `judgment-model` into `available-model`. Grok slugs top out at `xhigh`, so under `unlimited` the fallback puts Grok at `xhigh` and keeps `fast-code-model` as it is. `large` keeps both defaults. `small` turns them into `available-model` and `available-model`.",
           "to": "For example, `unlimited` moves a `<family>-xhigh` slug to `<family>-max` when the host detects that slug. A family whose slugs stop at `xhigh` stays at `xhigh`. `small` moves each real slug to its family's `medium` slug."
+        },
+        {
+          "from": "The default role-to-model mapping is the rule shape shown in step 5 below.",
+          "to": "The default role-to-model mapping is the file shape shown in step 5 below."
+        },
+        {
+          "from": "name the current budget when the rule records one. With no rule, say that `large` matches the skill defaults.",
+          "to": "name the current budget when the file records one. With no file, say that every role runs on the parent chat model, so a budget changes only the models the user picks."
+        },
+        {
+          "from": "`unlimited`, `large`, `medium`, and `small` set the effort token of every real slug",
+          "to": "When the host's model identifiers carry an effort level, `unlimited`, `large`, `medium`, and `small` set the effort token of every real slug"
+        },
+        {
+          "from": "(both mean: this role runs on the parent chat model, which is how Auto users stay on Auto)",
+          "to": "(both mean that this role runs on the parent chat model)"
+        },
+        {
+          "from": "### 5. Write the rule",
+          "to": "### 5. Write the configuration file"
+        },
+        {
+          "from": "Tell the user the rule was written and that it applies to new sessions.",
+          "to": "Tell the user the configuration file was written and that it applies to new sessions."
         }
       ]
     },
     "show-me-your-work": {
-      "description": "Keep an evidence-backed decision log for long-running or unattended work."
+      "description": "Keep an evidence-backed decision log for long-running or unattended work.",
+      "body": [
+        {
+          "from": "such as its agent id",
+          "to": "such as its session or conversation ID"
+        }
+      ]
     },
     "swarm": {
       "description": "Run parallel workers on independent tasks and synthesize their results."
@@ -375,7 +544,13 @@
       "description": "Use a failing test to drive a fix or feature when a practical test boundary is available."
     },
     "teach": {
-      "description": "Explain a change or subsystem using its behavior and decision history."
+      "description": "Explain a change or subsystem using its behavior and decision history.",
+      "body": [
+        {
+          "from": "reach for the image-generation tool and draw it marker-on-whiteboard style with a few short labels, since image models garble long text. Generate that picture, don't settle for describing it in words.",
+          "to": "use the host's image-generation capability and draw it marker-on-whiteboard style with a few short labels, since image models garble long text. Generate that picture, don't settle for describing it in words. If the host cannot generate images, draw an SVG or ASCII sketch."
+        }
+      ]
     },
     "technical-writing": {
       "description": "Write or review technical documentation using audience, document purpose, and plain-language structure."

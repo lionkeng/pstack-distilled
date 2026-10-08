@@ -410,6 +410,7 @@ def synchronize(
     ref_override: Optional[str] = None,
     check: bool = False,
     regenerate: bool = False,
+    require_rule_matches: bool = True,
 ) -> Mapping[str, object]:
     repo_root = repo_root.resolve()
     if not repo_root.is_dir():
@@ -491,7 +492,9 @@ def synchronize(
             transaction = Path(transaction_name)
             staged_output = transaction / "skills"
             try:
-                skill_count = port_skills(pstack_root, staged_output, rewrites_path)
+                skill_count = port_skills(
+                    pstack_root, staged_output, rewrites_path, require_rule_matches=require_rule_matches
+                )
             except PortError as exc:
                 raise SyncError(str(exc)) from exc
             validation_errors = validate_skills(staged_output)
@@ -604,6 +607,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="Rebuild the generated tree from the commit recorded in the lock instead of the ref tip",
     )
     parser.add_argument("--report-json", type=Path, help="Write a deterministic synchronization report")
+    parser.add_argument(
+        "--allow-unmatched-rules",
+        action="store_true",
+        help="Do not fail when a text rule matches nothing (for partial upstream test fixtures)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -614,6 +622,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             ref_override=args.ref,
             check=args.check,
             regenerate=args.regenerate,
+            require_rule_matches=not args.allow_unmatched_rules,
         )
     except (OSError, UnicodeError, SyncError) as exc:
         print(f"sync failed: {exc}", file=sys.stderr)
