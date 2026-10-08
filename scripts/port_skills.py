@@ -11,10 +11,9 @@ from typing import Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
 RUNTIME_MARKERS = re.compile(
     r"(?:\bCursor\b|\.cursor/|\bAsk(?:User)?Question\b|`?Task`? tool|"
-    r"\bsubagent_type\b|\brun_in_background\b|/loop\b|"
-    r"claude-fable-5(?:-1)?-thinking-max|claude-opus-5-thinking-xhigh|"
-    r"gpt-5\.6-sol-max|grok-4\.6-fast-xhigh|cursor-team-kit)"
+    r"\bsubagent_type\b|\brun_in_background\b|/loop\b|cursor-team-kit)"
 )
+# A vendor model slug in a skill body also marks host-specific model selection.
 VENDOR_MODEL_SLUG = re.compile(
     r"\b(?:claude|gpt|gemini|grok|llama|mistral|deepseek|qwen)"
     r"(?:-[a-z0-9][a-z0-9._-]*)+\b",
@@ -47,6 +46,9 @@ POTETO_COMPATIBILITY = (
 )
 
 EXPLICIT_ACTIVATION_PREFIX = "Explicit request or pstack routing only. "
+# Replaces check-plan.mjs's "/loop 1h" program marker. The `/loop 1h` literal
+# rule in porting/rewrites.json must produce this text in the plan template.
+CHECK_PLAN_LOOP_MARKER = "hourly run of the host's recurring-run capability"
 
 SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     (
@@ -514,6 +516,7 @@ class SkillOverride(NamedTuple):
     description: Optional[str]
     explicit: Optional[bool]
     body: Sequence[Tuple[str, str]]
+    exclude: bool = False
 
 
 def _load_rewrite_config(path: Path) -> Mapping[str, object]:
@@ -541,7 +544,7 @@ def _load_rewrites(path: Path) -> Sequence[Tuple[str, str]]:
 
 
 def _load_skill_overrides(path: Path) -> Mapping[str, SkillOverride]:
-    """Per-skill description and body edits keyed by upstream skill name.
+    """Per-skill description and body edits, or an exclusion, keyed by upstream skill name.
 
     Overrides for skills absent upstream are ignored so the same configuration
     serves partial fixtures; a body rule whose text is missing fails in
@@ -553,9 +556,14 @@ def _load_skill_overrides(path: Path) -> Mapping[str, SkillOverride]:
     for name, item in raw.get("skills", {}).items():
         if not isinstance(item, Mapping):
             raise PortError(f"{path}: skill override {name!r} must be a JSON object")
-        unknown = sorted(set(item) - {"description", "explicit", "body"})
+        unknown = sorted(set(item) - {"description", "explicit", "body", "exclude"})
         if unknown:
             raise PortError(f"{path}: skill override {name!r} has unsupported keys: {', '.join(unknown)}")
+        exclude = item.get("exclude", False)
+        if not isinstance(exclude, bool):
+            raise PortError(f"{path}: skill override {name!r} exclude must be true or false")
+        if exclude and set(item) != {"exclude"}:
+            raise PortError(f"{path}: skill override {name!r} excludes the skill and cannot also edit it")
         description = item.get("description")
         if description is not None and (not isinstance(description, str) or not description):
             raise PortError(f"{path}: skill override {name!r} description must be a non-empty string")
@@ -577,7 +585,9 @@ def _load_skill_overrides(path: Path) -> Mapping[str, SkillOverride]:
                     f"{path}: skill override {name!r} body rule {index} must contain a non-empty from and a to string"
                 )
             body.append((rule["from"], rule["to"]))
-        overrides[name] = SkillOverride(description=description, explicit=explicit, body=body)
+        overrides[name] = SkillOverride(
+            description=description, explicit=explicit, body=body, exclude=exclude
+        )
     return overrides
 
 
@@ -923,6 +933,61 @@ transcripts="${PSTACK_CONVERSATION_HISTORY_DIR:-}"
     return text.replace(old_scan, new_scan)
 
 
+def _safe_autopilot_merge(text: str) -> str:
+    old = (
+        "CI must pass on that head before the merge, and the patch-id rule decides whether "
+        "the round's verdict still holds. "
+        "Once that head is green and its patch-id matches the verdict's under the patch-id rule "
+        "in `playbooks/shipping.md`, a later trunk move does not force another rebase. "
+        "Right before the merge, fetch trunk and check that `git merge-tree` of the head against "
+        "current trunk is clean. Also check that no path in "
+        "`git diff --name-only $(git merge-base HEAD origin/main) origin/main` is a path the PR "
+        "changes or a path that decides which CI runs for it, such as the repo's CI config paths. "
+        "If either check fails, rebase again, report the new head SHA, wait for CI to pass on it, "
+        "and repeat these checks."
+    )
+    new = (
+        "Fresh CI and the load-bearing runtime checks must pass on that head before the merge. "
+        "The patch-id rule decides whether the round's code-review verdict still holds. "
+        "Record the exact trunk SHA included in the green head. Right before the merge, fetch "
+        "trunk and require `git merge-base --is-ancestor origin/main HEAD` to succeed. If trunk "
+        "has advanced beyond that head, rebase onto the new trunk tip, report the new head and "
+        "trunk SHAs, and wait for fresh CI and the load-bearing runtime checks on that head. "
+        "Repeat this gate after every further trunk move. A clean `git merge-tree` and disjoint "
+        "paths do not prove that changes in different files work together. The patch-id rule in "
+        "`playbooks/shipping.md` may preserve a code-review verdict, but an unchanged patch-id "
+        "does not preserve runtime or CI results across a trunk change. Require the forge's "
+        "up-to-date-branch protection or a merge queue that tests the current integrated tree "
+        "to close the race between the last fetch and the merge. If neither safeguard is "
+        "available, stop at merge-ready."
+    )
+    if text.count(old) != 1:
+        raise PortError(
+            "autopilot-full.md: expected upstream merge gate must occur exactly once"
+        )
+    return text.replace(old, new)
+
+
+def _portable_check_plan(text: str) -> str:
+    old = '"/loop 1h"'
+    if old not in text:
+        raise PortError("check-plan.mjs: expected upstream /loop 1h program marker was not found")
+    return text.replace(old, json.dumps(CHECK_PLAN_LOOP_MARKER))
+
+
+def _require_check_plan_marker_in_template(output_root: Path) -> None:
+    """Fail when check-plan.mjs would reject every plan copied from the converted template."""
+
+    poteto = output_root / "poteto-mode"
+    template = poteto / "playbooks" / "multi-phase-plan.md"
+    if not (poteto / "scripts" / "check-plan.mjs").is_file() or not template.is_file():
+        return
+    if CHECK_PLAN_LOOP_MARKER not in template.read_text(encoding="utf-8"):
+        raise PortError(
+            f"{template}: converted plan template lacks the check-plan.mjs marker {CHECK_PLAN_LOOP_MARKER!r}"
+        )
+
+
 def _copy_resource(
     source: Path,
     destination: Path,
@@ -941,7 +1006,9 @@ def _copy_resource(
         if source.name == "worktree-audit.sh":
             text = _portable_worktree_script(text)
         if source.name == "check-plan.mjs":
-            text = text.replace("grok-4.6-fast-xhigh", "fast-code-model")
+            text = _portable_check_plan(text)
+        if source.parts[-3:] == ("poteto-mode", "playbooks", "autopilot-full.md"):
+            text = _safe_autopilot_merge(text)
         if source.suffix.lower() == ".md":
             text = _rewrite_text(text, rewrites, skill_names)
         else:
@@ -1031,6 +1098,9 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
         raise PortError(f"{source_skills}: no skills found")
     if len(skill_names) != len(set(skill_names)):
         raise PortError(f"{source_skills}: duplicate skill directory names")
+    skill_dirs = [
+        path for path in skill_dirs if not (path.name in overrides and overrides[path.name].exclude)
+    ]
 
     for source_skill in skill_dirs:
         skill_name = source_skill.name
@@ -1044,7 +1114,9 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
 
         frontmatter, source_body = _split_frontmatter(skill_file.read_text(encoding="utf-8"), skill_file)
         _, description, explicit = _source_metadata(frontmatter, skill_file)
-        had_runtime_markers = bool(RUNTIME_MARKERS.search(source_body))
+        had_runtime_markers = bool(
+            RUNTIME_MARKERS.search(source_body) or VENDOR_MODEL_SLUG.search(source_body)
+        )
         body = _rewrite_text(source_body, rewrites, skill_names)
 
         if skill_name == "no-comments":
@@ -1144,6 +1216,7 @@ def port_skills(pstack_root: Path, output_root: Path, rewrites_path: Path) -> in
     if no_comments.is_dir():
         _port_comment_reviewer(pstack_root, no_comments, rewrites, skill_names)
     _remove_cross_skill_links(output_root)
+    _require_check_plan_marker_in_template(output_root)
     return len(skill_dirs)
 
 

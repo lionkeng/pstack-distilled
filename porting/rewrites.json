@@ -10,8 +10,20 @@
       "to": "using the host's recurring-run capability"
     },
     {
+      "from": "`/loop` works in local and cloud roots.",
+      "to": "Use it in local and remote roots when the host supports both."
+    },
+    {
+      "from": "`/loop 1h`",
+      "to": "an hourly run of the host's recurring-run capability"
+    },
+    {
       "from": "~/.cursor/rules/pstack-models.mdc",
       "to": ".pstack/models.md"
+    },
+    {
+      "from": "the `pstack-models.mdc` rule",
+      "to": "`.pstack/models.md`"
     },
     {
       "from": "~/.cursor/skills/",
@@ -166,6 +178,18 @@
       "to": "independent-review-model"
     },
     {
+      "from": "claude-opus-5-5-xhigh",
+      "to": "judgment-model"
+    },
+    {
+      "from": "grok-4.7-xhigh-fast",
+      "to": "fast-code-model"
+    },
+    {
+      "from": "Families go by prefix: `claude-*` and `grok-*`.",
+      "to": "Families go by the slug's vendor prefix."
+    },
+    {
       "from": "gpt-4o",
       "to": "available-multimodal-model"
     },
@@ -212,11 +236,17 @@
     "automate-me": {
       "description": "Create or update a personal working-style skill from the user's preferences and evidence."
     },
+    "benchmark-checklist": {
+      "description": "Vet a performance measurement before reporting or acting on it."
+    },
     "blast-radius": {
       "description": "Trace a proposed change to affected callers and verify its safety assumptions."
     },
     "bro": {
       "description": "Restate the last message in plain language."
+    },
+    "correct": {
+      "description": "Find mistakes that agents repeat in this repository and add checks that prevent them."
     },
     "create-verification-skill": {
       "description": "Create a project skill that verifies real UI, CLI, or service behavior."
@@ -243,6 +273,9 @@
     "no-comments": {
       "description": "Review comments for removal or replacement with enforceable constraints."
     },
+    "poteto-help": {
+      "exclude": true
+    },
     "poteto-mode": {
       "description": "Apply poteto working-style preferences for concise communication, focused changes, and verification."
     },
@@ -263,6 +296,9 @@
     },
     "principle-experience-first": {
       "description": "Evaluate product scope and UX tradeoffs from the user's experience."
+    },
+    "principle-explain-the-number": {
+      "description": "Find what limits a measured number and rule out other causes before trusting or reporting it."
     },
     "principle-fix-root-causes": {
       "description": "Trace a reproduced bug to its cause and fix the responsible code."
@@ -320,6 +356,14 @@
     },
     "reflect": {
       "description": "Review conversation evidence for lessons and propose targeted skill improvements."
+    },
+    "setup-pstack": {
+      "body": [
+        {
+          "from": "So `unlimited` turns `judgment-model` into `available-model`. Grok slugs top out at `xhigh`, so under `unlimited` the fallback puts Grok at `xhigh` and keeps `fast-code-model` as it is. `large` keeps both defaults. `small` turns them into `available-model` and `available-model`.",
+          "to": "For example, `unlimited` moves a `<family>-xhigh` slug to `<family>-max` when the host detects that slug. A family whose slugs stop at `xhigh` stays at `xhigh`. `small` moves each real slug to its family's `medium` slug."
+        }
+      ]
     },
     "show-me-your-work": {
       "description": "Keep an evidence-backed decision log for long-running or unattended work."

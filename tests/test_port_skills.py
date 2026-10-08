@@ -108,17 +108,42 @@ Portable body.
                 generated,
             )
 
-    def test_new_poteto_phrases_and_check_plan_model_slug(self) -> None:
+    def test_body_naming_only_a_model_slug_gets_portable_execution(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
             root = Path(temporary)
-            source = root / "pstack"
-            skill = source / "skills" / "poteto-mode"
-            playbooks = skill / "playbooks"
-            scripts = skill / "scripts"
-            playbooks.mkdir(parents=True)
-            scripts.mkdir(parents=True)
+            skill = root / "pstack" / "skills" / "runner"
+            skill.mkdir(parents=True)
             (skill / "SKILL.md").write_text(
                 """---
+name: runner
+description: Run candidates.
+---
+
+# Runner
+
+If the line is missing, use `claude-opus-9-xhigh`.
+""",
+                encoding="utf-8",
+            )
+            output = root / "skills"
+            port_module.port_skills(root / "pstack", output, PROJECT_ROOT / "porting" / "rewrites.json")
+            generated = (output / "runner" / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("## Portable execution", generated)
+            self.assertIn("use `available-model`", generated)
+
+
+class CheckPlanTest(unittest.TestCase):
+    LOOP_LINE = "- [ ] On the operator's go, arm the audit tick as `/loop 1h` with the tick prompt below.\n"
+
+    def _port_poteto_fixture(self, root: Path, plan_text: str) -> Path:
+        source = root / "pstack"
+        skill = source / "skills" / "poteto-mode"
+        playbooks = skill / "playbooks"
+        scripts = skill / "scripts"
+        playbooks.mkdir(parents=True)
+        scripts.mkdir(parents=True)
+        (skill / "SKILL.md").write_text(
+            """---
 name: poteto-mode
 description: Apply poteto-mode when requested.
 ---
@@ -127,33 +152,38 @@ description: Apply poteto-mode when requested.
 
 Portable body.
 """,
-                encoding="utf-8",
-            )
-            (playbooks / "opening-a-pr.md").write_text(
-                "**PRs.** Run `/deslop` from `cursor-team-kit` over the diff before commit. "
-                "Run `/no-comments` before review. Write every PR title, PR description, and "
-                "commit body with `/technical-writing`, then apply `/unslop`. Apply every "
-                "technical-writing layer except Diátaxis. Use one word for each action, keep "
-                "articles, and avoid `-ing` when a plain verb works.\n",
-                encoding="utf-8",
-            )
-            (playbooks / "multi-phase-plan.md").write_text(
-                "Ten lanes on `grok-4.6-fast-xhigh` at the PR head drive the real surface "
-                "through its control skill.\n"
+            encoding="utf-8",
+        )
+        (playbooks / "opening-a-pr.md").write_text(
+            "**PRs.** Run `/deslop` from `cursor-team-kit` over the diff before commit. "
+            "Run `/no-comments` before review. Write every PR title, PR description, and "
+            "commit body with `/technical-writing`, then apply `/unslop`. Apply every "
+            "technical-writing layer except Diátaxis. Use one word for each action, keep "
+            "articles, and avoid `-ing` when a plain verb works.\n",
+            encoding="utf-8",
+        )
+        (playbooks / "multi-phase-plan.md").write_text(plan_text, encoding="utf-8")
+        (scripts / "check-plan.mjs").write_text(
+            'const PROGRAM_MARKERS = ["git show origin/main:", "/loop 1h", "status message"];\n',
+            encoding="utf-8",
+        )
+        output = root / "skills"
+        port_module.port_skills(source, output, PROJECT_ROOT / "porting" / "rewrites.json")
+        return output
+
+    def test_new_poteto_phrases_and_check_plan_loop_marker(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            output = self._port_poteto_fixture(
+                Path(temporary),
+                "Ten lanes at the PR head drive the real surface through its control skill, on "
+                "the `swarm workers` model (default `grok-4.7-xhigh-fast`).\n"
                 "**Control skill.** Pick it by surface. Browser, Electron, and web UIs use "
                 "`control-ui` from `cursor-team-kit`. CLIs and TUIs use `control-cli` from "
                 "`cursor-team-kit`. Native mobile uses whatever simulator-driving skill the repo "
                 "has. A PR that touches two surfaces gets lanes on both. A surface with no control "
                 "skill is a risk in Appendix C, and its live block still names how each lane drives "
-                "it.\n",
-                encoding="utf-8",
+                "it.\n" + self.LOOP_LINE,
             )
-            (scripts / "check-plan.mjs").write_text(
-                'const LANES = "Ten lanes on `grok-4.6-fast-xhigh` at the PR head";\n',
-                encoding="utf-8",
-            )
-            output = root / "skills"
-            port_module.port_skills(source, output, PROJECT_ROOT / "porting" / "rewrites.json")
             opening = (output / "poteto-mode" / "playbooks" / "opening-a-pr.md").read_text(
                 encoding="utf-8"
             )
@@ -171,9 +201,23 @@ Portable body.
             self.assertNotIn("optional companion tooling", plan)
             self.assertIn("Verification harness.", plan)
             self.assertIn("through its verification harness", plan)
-            self.assertIn("fast-code-model", plan)
-            self.assertIn("fast-code-model", checker)
-            self.assertNotIn("grok-4.6-fast-xhigh", checker)
+            self.assertIn("(default `fast-code-model`)", plan)
+            self.assertIn(
+                "arm the audit tick as an hourly run of the host's recurring-run capability with",
+                plan,
+            )
+            self.assertIn(
+                'const PROGRAM_MARKERS = ["git show origin/main:", '
+                "\"hourly run of the host's recurring-run capability\", \"status message\"];",
+                checker,
+            )
+            self.assertNotIn("/loop", checker)
+
+    def test_plan_template_without_check_plan_marker_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            with self.assertRaises(port_module.PortError) as raised:
+                self._port_poteto_fixture(Path(temporary), "Arm the audit tick by hand.\n")
+            self.assertIn("lacks the check-plan.mjs marker", str(raised.exception))
 
 
 class SkillOverrideTest(unittest.TestCase):
@@ -240,6 +284,31 @@ Spawn a worker for every question.
             self.assertIn('description: "Answer gamma questions."', generated)
             self.assertNotIn("Explicit request", generated)
             self.assertNotIn("pstack-distilled-activation", generated)
+
+    def test_excluded_skill_is_not_ported_or_counted(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(root, {"gamma": {"exclude": True}})
+            kept = source / "skills" / "delta"
+            kept.mkdir()
+            (kept / "SKILL.md").write_text(
+                "---\nname: delta\ndescription: Answer delta questions.\n---\n\n# Delta\n\nBody.\n",
+                encoding="utf-8",
+            )
+            output = root / "skills"
+            self.assertEqual(port_module.port_skills(source, output, rewrites), 1)
+            self.assertFalse((output / "gamma").exists())
+            self.assertTrue((output / "delta" / "SKILL.md").is_file())
+
+    def test_exclude_combined_with_edits_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
+            root = Path(temporary)
+            source, rewrites = self._write_fixture(
+                root, {"gamma": {"exclude": True, "description": "Answer gamma questions."}}
+            )
+            with self.assertRaises(port_module.PortError) as raised:
+                port_module.port_skills(source, root / "skills", rewrites)
+            self.assertIn("cannot also edit it", str(raised.exception))
 
     def test_override_with_stale_body_anchor_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:

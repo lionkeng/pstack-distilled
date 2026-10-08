@@ -14,7 +14,8 @@ The sync script copies instructions, playbooks, references, and scripts.
 It strips Cursor invocation metadata and pinned model names, then replaces
 Cursor paths and product names with host-agnostic placeholders. Custom
 agents, the plugin manifest, the docs site, and the Benny automation pack
-remain upstream.
+remain upstream. The `poteto-help` skill also remains upstream, because it
+documents Cursor setup and links into the docs site.
 
 ## Install
 
@@ -92,7 +93,9 @@ replacement `description` and to `body` rules. Each body rule names an exact
 `from` passage that must occur once in the converted `SKILL.md` and the `to`
 text that replaces it. When upstream rewrites that passage, the sync fails
 instead of dropping the edit. An `explicit` value of `false` keeps a skill
-open to automatic triggering when upstream marks it explicit-only. After
+open to automatic triggering when upstream marks it explicit-only. An
+`exclude` value of `true` leaves the skill out of `skills/`, and it cannot
+appear with other keys. After
 changing conversion rules, rebuild the
 tree from the locked upstream commit and refresh the lock without pulling
 newer upstream commits:
