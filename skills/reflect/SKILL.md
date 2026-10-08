@@ -33,19 +33,21 @@ Use only conversation history explicitly exposed by the host for the active work
 
 ### 2. Spawn three reviewers in parallel
 
-One message, three delegation calls, `worker role: general-purpose`, explicit `model:` on each, agent mode (`readonly: false`). Reviewers need MCP access for context lookups (tickets, chat threads, observability traces referenced in the conversation record). Readonly strips MCPs.
+One message, three delegation calls, `worker role: general-purpose`, with `model` set as below, agent mode (`readonly: false`). Reviewers need MCP access for context lookups (tickets, chat threads, observability traces referenced in the conversation record). Readonly strips MCPs.
 
-| Lens | `model` | Prompt template |
-|---|---|---|
-| Judgment | your configured reflect-judgment model (default `judgment-model`) | `references/judgment-reviewer.md` |
-| Tooling | your configured reflect-tooling model (default `deep-code-model`) | `references/tooling-reviewer.md` |
-| Divergent | your configured reflect-judgment model (default `judgment-model`) | `references/divergent-reviewer.md` |
+Each reviewer and the synthesizer name a role line in `.pstack/models.md` and a default. Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the host delegation capability rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message.
+
+| Lens | Role line | Default `model` | Prompt template |
+|---|---|---|---|
+| Judgment | `reflect judgment, divergent, synthesizer` | `judgment-model` | `references/judgment-reviewer.md` |
+| Tooling | `reflect tooling` | `fast-code-model` | `references/tooling-reviewer.md` |
+| Divergent | `reflect judgment, divergent, synthesizer` | `judgment-model` | `references/divergent-reviewer.md` |
 
 Pass each template verbatim, substituting the conversation-record path or digest where marked. Reviewers return findings in the delegated worker's response.
 
 ### 3. Synthesize
 
-One delegation call, `worker role: general-purpose`, using your configured reflect-judgment model (default `judgment-model`), agent mode (`readonly: false`). The synthesizer's quality check includes spot-verifying citations, which can require MCP access. Readonly strips MCPs. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+One delegation call, `worker role: general-purpose`, with `model` from the `reflect judgment, divergent, synthesizer` line (default `judgment-model`), agent mode (`readonly: false`). The synthesizer's quality check includes spot-verifying citations, which can require MCP access. Readonly strips MCPs. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
 
 ### 4. Structural enforcement check
 
