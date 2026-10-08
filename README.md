@@ -14,8 +14,13 @@ The sync script copies instructions, playbooks, references, and scripts.
 It strips Cursor invocation metadata and pinned model names, then replaces
 Cursor paths and product names with host-agnostic placeholders. Custom
 agents, the plugin manifest, the docs site, and the Benny automation pack
-remain upstream. The `poteto-help` skill also remains upstream, because it
-documents Cursor setup and links into the docs site.
+remain upstream. Two skills also remain upstream. `poteto-help` documents
+Cursor setup and links into the docs site. `make-bot-ui` depends on Cursor
+Automations webhooks and cannot work on another host.
+
+Some playbooks name Bugbot, a GitHub review bot, as an example of an automated
+reviewer. The bundled `watch-pr` script still counts only Bugbot comments as
+review-bot threads.
 
 ## Install
 
@@ -92,7 +97,9 @@ applied to every converted file. `skills` maps an upstream skill name to a
 replacement `description` and to `body` rules. Each body rule names an exact
 `from` passage that must occur once in the converted `SKILL.md` and the `to`
 text that replaces it. When upstream rewrites that passage, the sync fails
-instead of dropping the edit. An `explicit` value of `false` keeps a skill
+instead of dropping the edit. A `files` map applies the same exact rules to
+other converted files in the skill, keyed by path relative to the skill, such
+as `playbooks/shipping.md`. An `explicit` value of `false` keeps a skill
 open to automatic triggering when upstream marks it explicit-only. An
 `exclude` value of `true` leaves the skill out of `skills/`, and it cannot
 appear with other keys.
@@ -103,7 +110,8 @@ the sync fails and names each rule that matched nothing. Update the rule to the
 new wording, or delete it if the passage is gone. Without this check, a
 reworded passage would ship its Cursor wording unchanged. The offline tests
 pass `--allow-unmatched-rules`, because their upstream fixture holds only a few
-skills.
+skills. In that mode, a `body` or `files` rule whose text or file is absent is
+skipped. A rule that matches more than once still fails.
 
 After changing conversion rules, rebuild the tree from the locked upstream
 commit and refresh the lock without pulling newer upstream commits:

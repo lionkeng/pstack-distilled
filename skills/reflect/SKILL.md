@@ -35,7 +35,7 @@ Use only conversation history explicitly exposed by the host for the active work
 
 One message, three delegation calls, `worker role: general-purpose`, with `model` set as below. Grant each reviewer only the read access it needs for connected-source lookups (tickets, chat threads, observability traces referenced in the conversation record).
 
-Each reviewer and the synthesizer name a role line in `.pstack/models.md` and a default. Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the host delegation capability rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message.
+Each reviewer and the synthesizer name a role line in `.pstack/models.md` and a default. Set `model` to that line's value, or to the default if `.pstack/models.md` or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the host delegation capability rejects a slug, use the default and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the worker runs on the current model.
 
 | Lens | Role line | Default `model` | Prompt template |
 |---|---|---|---|
@@ -62,8 +62,8 @@ Backlog items file to whatever devex / backlog tracker your team uses automatica
 For each approved Accepted item, follow the Routing field exactly:
 
 - Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): parent does directly.
-- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): hand to Agent Skills authoring workflow and run its draft / test / iterate loop.
-- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): hand to Agent Skills authoring workflow and run its description-optimization loop.
+- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): hand it to the Agent Skills authoring workflow and run its draft / test / iterate loop.
+- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): hand it to the Agent Skills authoring workflow and run its description-optimization loop.
 - `new skill via Agent Skills authoring workflow: <kebab-name>`: hand creation to Agent Skills authoring workflow. Do not invent the shape ad hoc.
 
 If your environment ships a SKILL.md validator, run it on every touched skill before declaring done. Skip this step if it doesn't.

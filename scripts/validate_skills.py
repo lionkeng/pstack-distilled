@@ -33,6 +33,9 @@ MODEL_SLUG_RE = re.compile(
 PORTABILITY_PATTERNS: Sequence[Tuple[str, re.Pattern[str]]] = (
     ("host-specific skill path", re.compile(r"\.(?:cursor|claude|codex)/")),
     ("Cursor runtime name", re.compile(r"\bCursor\b")),
+    ("Cursor domain", re.compile(r"\bcursor\.(?:sh|com)\b", re.IGNORECASE)),
+    ("assumed agent store", re.compile(r"\bagent store\b", re.IGNORECASE)),
+    ("Cursor MCP sign-in tool", re.compile(r"\bmcp_auth\b")),
     ("Cursor Task tool", re.compile(r"(?:`Task`|\bTask tool\b)")),
     ("Cursor question tool", re.compile(r"\bAsk(?:User)?Question\b")),
     ("Cursor subagent field", re.compile(r"\bsubagent_type\b")),

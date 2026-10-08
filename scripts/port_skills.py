@@ -287,10 +287,11 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "Never probe private storage or another workspace's history.",
     ),
     (
-        "the active workspace's `agent-transcripts/` directory (the system prompt names the path). "
-        "Don't glob across `~/.cursor/projects/*/`. That reads unrelated private chats.",
-        "the active workspace's explicitly exposed conversation history. Never probe private "
-        "storage or another workspace's history.",
+        "Read this run's transcript under the active workspace's `agent-transcripts/` directory "
+        "(the system prompt names the path). Don't glob across `~/.cursor/projects/*/`. That reads "
+        "unrelated private chats.",
+        "Read this run's transcript when the host exposes it. Never probe private storage or another "
+        "workspace's history.",
     ),
     (
         "Before spawning investigators, list the available MCPs from the Cursor environment. "
@@ -334,7 +335,6 @@ POST_SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     ("transcripts", "conversation records"),
     ("transcript", "conversation record"),
     ("`Read` tool calls", "file reads"),
-    ("cloud_base_branch", "remote base branch"),
 )
 
 # Repair the phrases that the slash-command, create-skill, and deslop regexes
@@ -638,6 +638,8 @@ class SkillOverride(NamedTuple):
     explicit: Optional[bool]
     body: Sequence[Tuple[str, str]]
     exclude: bool = False
+    # Rules for other converted files in the skill, keyed by path relative to the skill.
+    files: Mapping[str, Sequence[Tuple[str, str]]] = {}
 
 
 def _load_rewrite_config(path: Path) -> Mapping[str, object]:
@@ -664,20 +666,36 @@ def _load_rewrites(path: Path) -> Sequence[Tuple[str, str]]:
     return rewrites
 
 
+def _parse_exact_rules(value: object, where: str) -> List[Tuple[str, str]]:
+    if not isinstance(value, list):
+        raise PortError(f"{where} must be a list of from/to rules")
+    rules: List[Tuple[str, str]] = []
+    for index, rule in enumerate(value):
+        if (
+            not isinstance(rule, Mapping)
+            or not isinstance(rule.get("from"), str)
+            or not rule["from"]
+            or not isinstance(rule.get("to"), str)
+        ):
+            raise PortError(f"{where} rule {index} must contain a non-empty from and a to string")
+        rules.append((rule["from"], rule["to"]))
+    return rules
+
+
 def _load_skill_overrides(path: Path) -> Mapping[str, SkillOverride]:
-    """Per-skill description and body edits, or an exclusion, keyed by upstream skill name.
+    """Per-skill description and text edits, or an exclusion, keyed by upstream skill name.
 
     Overrides for skills absent upstream are ignored so the same configuration
-    serves partial fixtures; a body rule whose text is missing fails in
-    ``_apply_body_override`` so upstream rewrites surface instead of dropping
-    the edit silently.
+    serves partial fixtures. In strict mode, which every real sync uses, a body
+    or file rule whose text or file is missing fails in ``_apply_exact_rules``
+    so upstream rewrites surface instead of dropping the edit silently.
     """
     raw = _load_rewrite_config(path)
     overrides: Dict[str, SkillOverride] = {}
     for name, item in raw.get("skills", {}).items():
         if not isinstance(item, Mapping):
             raise PortError(f"{path}: skill override {name!r} must be a JSON object")
-        unknown = sorted(set(item) - {"description", "explicit", "body", "exclude"})
+        unknown = sorted(set(item) - {"description", "explicit", "body", "files", "exclude"})
         if unknown:
             raise PortError(f"{path}: skill override {name!r} has unsupported keys: {', '.join(unknown)}")
         exclude = item.get("exclude", False)
@@ -691,33 +709,35 @@ def _load_skill_overrides(path: Path) -> Mapping[str, SkillOverride]:
         explicit = item.get("explicit")
         if explicit is not None and not isinstance(explicit, bool):
             raise PortError(f"{path}: skill override {name!r} explicit must be true or false")
-        rules = item.get("body", [])
-        if not isinstance(rules, list):
-            raise PortError(f"{path}: skill override {name!r} body must be a list of from/to rules")
-        body: List[Tuple[str, str]] = []
-        for index, rule in enumerate(rules):
-            if (
-                not isinstance(rule, Mapping)
-                or not isinstance(rule.get("from"), str)
-                or not rule["from"]
-                or not isinstance(rule.get("to"), str)
-            ):
+        body = _parse_exact_rules(item.get("body", []), f"{path}: skill override {name!r} body")
+        raw_files = item.get("files", {})
+        if not isinstance(raw_files, Mapping):
+            raise PortError(f"{path}: skill override {name!r} files must map relative paths to rules")
+        files: Dict[str, List[Tuple[str, str]]] = {}
+        for relative, rules in raw_files.items():
+            parts = Path(relative).parts
+            if Path(relative).is_absolute() or ".." in parts or relative == "SKILL.md":
                 raise PortError(
-                    f"{path}: skill override {name!r} body rule {index} must contain a non-empty from and a to string"
+                    f"{path}: skill override {name!r} file {relative!r} must be a relative path other "
+                    "than SKILL.md, which body rules cover"
                 )
-            body.append((rule["from"], rule["to"]))
+            files[relative] = _parse_exact_rules(rules, f"{path}: skill override {name!r} file {relative!r}")
         overrides[name] = SkillOverride(
-            description=description, explicit=explicit, body=body, exclude=exclude
+            description=description, explicit=explicit, body=body, exclude=exclude, files=files
         )
     return overrides
 
 
-def _apply_body_override(body: str, rules: Sequence[Tuple[str, str]], source: Path) -> str:
+def _apply_exact_rules(
+    body: str, rules: Sequence[Tuple[str, str]], source: Path, require_match: bool
+) -> str:
     for old, new in rules:
         occurrences = body.count(old)
+        if occurrences == 0 and not require_match:
+            continue
         if occurrences != 1:
             raise PortError(
-                f"{source}: skill override text must occur exactly once in the converted body, "
+                f"{source}: skill override text must occur exactly once in the converted text, "
                 f"found {occurrences}: {old[:80]!r}"
             )
         body = body.replace(old, new)
@@ -1017,8 +1037,9 @@ def port_skills(
 ) -> int:
     """Convert upstream skills into ``output_root`` and return the number converted.
 
-    With ``require_rule_matches``, fail when a text rule matched nothing. Only a
-    full upstream tree can satisfy that; partial test fixtures leave it off.
+    With ``require_rule_matches``, fail when a text rule matched nothing or a
+    body or file rule found no text or file. Only a full upstream tree can
+    satisfy that; partial test fixtures leave it off.
     """
     source_skills = pstack_root / "skills"
     if source_skills.is_symlink():
@@ -1079,7 +1100,7 @@ def port_skills(
 
         override = overrides.get(skill_name)
         if override is not None:
-            body = _apply_body_override(body, override.body, skill_file)
+            body = _apply_exact_rules(body, override.body, skill_file, require_rule_matches)
             if override.explicit is not None:
                 explicit = override.explicit
 
@@ -1155,6 +1176,17 @@ def port_skills(
                 continue
             relative = source.relative_to(source_skill)
             _copy_resource(source, destination_skill / relative, rewriter)
+
+        for relative_name, rules in (override.files if override is not None else {}).items():
+            target = destination_skill / relative_name
+            if not target.is_file():
+                if not require_rule_matches:
+                    continue
+                raise PortError(f"{source_skill}: skill override names a missing file: {relative_name}")
+            converted = target.read_text(encoding="utf-8")
+            target.write_text(
+                _apply_exact_rules(converted, rules, target, require_rule_matches), encoding="utf-8"
+            )
 
     no_comments = output_root / "no-comments"
     if no_comments.is_dir():
