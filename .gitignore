@@ -3,3 +3,4 @@ __pycache__/
 .pstack-sync-*/
 pstack-upstream-*/
 sync-report.json
+node_modules/
