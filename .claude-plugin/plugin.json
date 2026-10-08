@@ -1,7 +1,7 @@
 {
   "name": "pstack",
   "description": "Engineering skills and playbooks distilled from Lauren Tan's pstack Cursor plugin into the standard Agent Skills specification: architecture walkthroughs (how, why), multi-agent design and review (architect, arena, interrogate, swarm), verification workflows (tdd, create-verification-skill, show-me-your-work), prose cleanup (unslop, technical-writing), and a library of engineering principles.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "author": {
     "name": "Keng Lim"
   },

@@ -933,6 +933,41 @@ transcripts="${PSTACK_CONVERSATION_HISTORY_DIR:-}"
     return text.replace(old_scan, new_scan)
 
 
+def _safe_autopilot_merge(text: str) -> str:
+    old = (
+        "CI must pass on that head before the merge, and the patch-id rule decides whether "
+        "the round's verdict still holds. "
+        "Once that head is green and its patch-id matches the verdict's under the patch-id rule "
+        "in `playbooks/shipping.md`, a later trunk move does not force another rebase. "
+        "Right before the merge, fetch trunk and check that `git merge-tree` of the head against "
+        "current trunk is clean. Also check that no path in "
+        "`git diff --name-only $(git merge-base HEAD origin/main) origin/main` is a path the PR "
+        "changes or a path that decides which CI runs for it, such as the repo's CI config paths. "
+        "If either check fails, rebase again, report the new head SHA, wait for CI to pass on it, "
+        "and repeat these checks."
+    )
+    new = (
+        "Fresh CI and the load-bearing runtime checks must pass on that head before the merge. "
+        "The patch-id rule decides whether the round's code-review verdict still holds. "
+        "Record the exact trunk SHA included in the green head. Right before the merge, fetch "
+        "trunk and require `git merge-base --is-ancestor origin/main HEAD` to succeed. If trunk "
+        "has advanced beyond that head, rebase onto the new trunk tip, report the new head and "
+        "trunk SHAs, and wait for fresh CI and the load-bearing runtime checks on that head. "
+        "Repeat this gate after every further trunk move. A clean `git merge-tree` and disjoint "
+        "paths do not prove that changes in different files work together. The patch-id rule in "
+        "`playbooks/shipping.md` may preserve a code-review verdict, but an unchanged patch-id "
+        "does not preserve runtime or CI results across a trunk change. Require the forge's "
+        "up-to-date-branch protection or a merge queue that tests the current integrated tree "
+        "to close the race between the last fetch and the merge. If neither safeguard is "
+        "available, stop at merge-ready."
+    )
+    if text.count(old) != 1:
+        raise PortError(
+            "autopilot-full.md: expected upstream merge gate must occur exactly once"
+        )
+    return text.replace(old, new)
+
+
 def _portable_check_plan(text: str) -> str:
     old = '"/loop 1h"'
     if old not in text:
@@ -972,6 +1007,8 @@ def _copy_resource(
             text = _portable_worktree_script(text)
         if source.name == "check-plan.mjs":
             text = _portable_check_plan(text)
+        if source.parts[-3:] == ("poteto-mode", "playbooks", "autopilot-full.md"):
+            text = _safe_autopilot_merge(text)
         if source.suffix.lower() == ".md":
             text = _rewrite_text(text, rewrites, skill_names)
         else:
