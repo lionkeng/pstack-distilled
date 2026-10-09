@@ -299,7 +299,45 @@
       "description": "Find mistakes that agents repeat in this repository and add checks that prevent them."
     },
     "create-verification-skill": {
-      "description": "Create a project skill that verifies real UI, CLI, or service behavior."
+      "description": "Create a project skill that verifies real UI, CLI, or service behavior.",
+      "body": [
+        {
+          "from": "Note ports, env vars, seed data, auth.",
+          "to": "Note ports, env vars, seed data, auth.\n- **Depend:** which services must answer for the surface to work? Find them in env vars, fetch clients, proxy config, and compose files. For each dependency, record its env var and current target: a local port, a container, a shared remote environment, or a mock. Also record the owning repo, its start command, and a read-only health check. When the owning repo has its own verification skill, use that skill's Launch, Doctor, and Cleanup by path instead of copying their steps."
+        },
+        {
+          "from": "- **Launch:** the exact command that starts the app for verification",
+          "to": "- **Dependencies:** one row per dependency from the interview: env var, current target, owning repo, start command, and health check. Mark each dependency that this skill must never start, such as a shared remote environment. A proof writes to such a dependency only through named fixtures. Leave this section out only when the surface calls no other service.\n- **Launch:** the exact command that starts the app for verification"
+        },
+        {
+          "from": "then start each drive in its own isolated PTY or tmux session.",
+          "to": "then start each drive in its own isolated PTY or tmux session. When the app has dependencies, Launch checks each one first. It reuses a healthy dependency and starts a missing one, so a second Launch changes nothing. It records which dependencies this run started."
+        },
+        {
+          "from": "An agent runs this first whenever anything looks off.",
+          "to": "An agent runs this first whenever anything looks off. Doctor also checks every dependency and prints the version or commit of each dependency that exposes one. Report a down dependency as `not ready`, never as an app failure. Doctor fails when an env var points at a localhost port that the Dependencies section does not list."
+        },
+        {
+          "from": "some dry-runs still touch the network or open a browser.",
+          "to": "some dry-runs still touch the network or open a browser. With each proof, record the target and the version or commit of every dependency. Keep the logs of the dependencies this run started. Without that state, nobody can repeat a bug repro."
+        },
+        {
+          "from": "proof artifacts survive the teardown, in a location the skill names.",
+          "to": "proof artifacts survive the teardown, in a location the skill names. Stop only the dependencies this run started, and leave running the ones it reused."
+        },
+        {
+          "from": "A helper the reader has to reverse-engineer is not a helper.",
+          "to": "A helper the reader has to reverse-engineer is not a helper. When the app has dependencies, or another app depends on it, ship Launch, Doctor, and Cleanup as scripts. Another verification skill can then call them by path."
+        },
+        {
+          "from": "a proof that drives one convenient entry point is incomplete when the map lists others.",
+          "to": "a proof that drives one convenient entry point is incomplete when the map lists others. When a feature needs only some of the dependencies, name them in its `Preconditions:`. A bug repro then starts only what that feature needs."
+        },
+        {
+          "from": "so broken attempts don't strand processes and ports.",
+          "to": "so broken attempts don't strand processes and ports. When the skill has dependencies, begin this run with one startable dependency stopped. Doctor must report it down, Launch must start it, and Cleanup must stop it. Cleanup must leave running any dependency that the run reused."
+        }
+      ]
     },
     "figure-it-out": {
       "description": "Design an auditable execution plan for a large migration or difficult multi-part change."
@@ -324,7 +362,17 @@
       ]
     },
     "maintain-verification-skill": {
-      "description": "Audit a project verification skill against current source and observable behavior."
+      "description": "Audit a project verification skill against current source and observable behavior.",
+      "body": [
+        {
+          "from": "require a concrete source path before calling one missing.",
+          "to": "require a concrete source path before calling one missing. Check the Dependencies section the same way, against the env vars, fetch clients, and compose files in current source. A missing, extra, or wrong row is drift."
+        },
+        {
+          "from": "if the map omits that prerequisite, that's drift.",
+          "to": "if the map omits that prerequisite, that's drift. A down dependency that the skill must never start is such a prerequisite. Name it, and keep it out of the product gaps."
+        }
+      ]
     },
     "make-bot-ui": {
       "exclude": true
