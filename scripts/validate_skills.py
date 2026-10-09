@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, FrozenSet, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import unquote
 
 
@@ -163,6 +165,40 @@ def _is_within(path: Path, parent: Path) -> bool:
     return True
 
 
+def git_ignored_paths(root: Path) -> FrozenSet[Path]:
+    """Return the files and directories under root that git ignores.
+
+    A skill's own tooling can install ignored files into a working copy, such
+    as poteto-mode's node_modules. Git never commits them, so the checks skip
+    them. A root outside a work tree, or inside an ignored directory such as
+    the sync's staging tree, gets no exemptions.
+    """
+
+    def git(*args: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ["git", *args],
+            cwd=str(root),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+    try:
+        if git("check-ignore", "--quiet", ".").returncode == 0:
+            return frozenset()
+        listed = git("ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z")
+    except OSError:
+        return frozenset()
+    if listed.returncode != 0:
+        return frozenset()
+    entries = (os.fsdecode(entry).rstrip("/") for entry in listed.stdout.split(b"\0"))
+    return frozenset(root / entry for entry in entries if entry)
+
+
+def is_git_ignored(path: Path, ignored: FrozenSet[Path]) -> bool:
+    return any(entry == path or entry in path.parents for entry in ignored)
+
+
 def _validate_links(skill_root: Path, markdown_path: Path, text: str, errors: List[str]) -> None:
     def validate_target(raw_target: str) -> None:
         raw_target = raw_target.strip()
@@ -200,7 +236,10 @@ def validate_skills(skills_root: Path) -> List[str]:
     if not skills_root.is_dir():
         return [f"{skills_root}: skills directory does not exist"]
 
-    skill_dirs = sorted(path for path in skills_root.iterdir() if path.is_dir())
+    ignored = git_ignored_paths(skills_root)
+    skill_dirs = sorted(
+        path for path in skills_root.iterdir() if path.is_dir() and not is_git_ignored(path, ignored)
+    )
     if not skill_dirs:
         return [f"{skills_root}: no skill directories found"]
 
@@ -212,6 +251,8 @@ def validate_skills(skills_root: Path) -> List[str]:
             continue
 
         for path in skill_dir.rglob("*"):
+            if is_git_ignored(path, ignored):
+                continue
             if path.is_symlink():
                 errors.append(f"{path}: symlinks are not permitted in portable skills")
             if "__pycache__" in path.parts or path.suffix.lower() in {".pyc", ".pyo"}:
@@ -273,7 +314,9 @@ def validate_skills(skills_root: Path) -> List[str]:
         if allowed_tools is not None and not isinstance(allowed_tools, str):
             errors.append(f"{skill_file}: allowed-tools must be a space-separated string")
 
-        for resource_path in sorted(path for path in skill_dir.rglob("*") if path.is_file()):
+        for resource_path in sorted(
+            path for path in skill_dir.rglob("*") if path.is_file() and not is_git_ignored(path, ignored)
+        ):
             try:
                 resource_text = resource_path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
@@ -306,7 +349,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
     else:
-        count = sum(1 for path in args.skills_root.iterdir() if path.is_dir())
+        ignored = git_ignored_paths(args.skills_root)
+        count = sum(
+            1 for path in args.skills_root.iterdir() if path.is_dir() and not is_git_ignored(path, ignored)
+        )
         print(f"validated {count} portable skills")
     return 1 if errors else 0
 
