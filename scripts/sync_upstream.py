@@ -22,7 +22,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from port_skills import PortError, port_skills  # noqa: E402
-from validate_skills import validate_skills  # noqa: E402
+from validate_skills import git_ignored_paths, is_git_ignored, validate_skills  # noqa: E402
 
 
 class SyncError(RuntimeError):
@@ -104,7 +104,10 @@ def _tree_snapshot(root: Path) -> Dict[str, Tuple[str, bytes]]:
         return snapshot
     if root.is_symlink():
         raise SyncError(f"{root}: generated tree cannot be a symlink")
+    ignored = git_ignored_paths(root)
     for path in sorted(root.rglob("*")):
+        if is_git_ignored(path, ignored):
+            continue
         if path.is_symlink():
             raise SyncError(f"{path}: generated tree cannot contain symlinks")
         if not path.is_file():
@@ -345,6 +348,24 @@ def _classify_changes(
     }
 
 
+def _carry_git_ignored(output: Path, staged_output: Path) -> None:
+    """Copy git-ignored files, such as an installed node_modules, into the new tree.
+
+    The swap replaces the whole output directory, so without this step a sync
+    would delete local files that the converter never wrote. A file is copied
+    only when the new tree still has its parent directory and does not
+    generate the same path.
+    """
+    for source in sorted(git_ignored_paths(output)):
+        target = staged_output / source.relative_to(output)
+        if target.exists() or target.is_symlink() or not target.parent.is_dir():
+            continue
+        if source.is_dir() and not source.is_symlink():
+            shutil.copytree(source, target, symlinks=True)
+        else:
+            shutil.copy2(source, target, follow_symlinks=False)
+
+
 def _write_atomic(path: Path, content: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.pstack-sync-{os.getpid()}")
@@ -381,6 +402,10 @@ def _apply_transaction(
         if existed:
             shutil.copy2(target, backup)
         writes.append((label, target, content, backup, existed))
+
+    # Before the try: its rollback deletes the output, which must stay intact if this fails.
+    if skills_changed and output_existed:
+        _carry_git_ignored(output, staged_output)
 
     try:
         if skills_changed:
