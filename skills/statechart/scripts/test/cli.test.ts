@@ -50,6 +50,8 @@ function run(
     {
       cwd,
       encoding: "utf8",
+      timeout: 60_000,
+      killSignal: "SIGKILL",
       env: {
         ...process.env,
         JAVA: java,
@@ -60,6 +62,7 @@ function run(
       },
     },
   );
+  assert.ifError(r.error);
   const configs: { [name: string]: string } = {};
   if (fs.existsSync(log))
     for (const c of read(log).split(/^## /m)) if (c) configs[c.slice(0, c.indexOf("\n"))] = c;

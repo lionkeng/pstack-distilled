@@ -1113,6 +1113,14 @@
           {
             "from": "    assert.equal(r.stderr, \"\");\n    assert.equal(r.status, 1);\n    assert.equal(read(path.join(r.out, \"chart.mmd\")), read(path.join(dir, \"chart.mmd\")));",
             "to": "    assert.equal(r.error, undefined);\n    assert.equal(r.stderr, \"\");\n    assert.equal(r.status, 1);\n    assert.equal(read(path.join(r.out, \"chart.mmd\")), read(path.join(dir, \"chart.mmd\")));"
+          },
+          {
+            "from": "      cwd,\n      encoding: \"utf8\",\n      env: {",
+            "to": "      cwd,\n      encoding: \"utf8\",\n      timeout: 60_000,\n      killSignal: \"SIGKILL\",\n      env: {"
+          },
+          {
+            "from": "  const configs: { [name: string]: string } = {};",
+            "to": "  assert.ifError(r.error);\n  const configs: { [name: string]: string } = {};"
           }
         ],
         "scripts/frontends/spec.ts": [
