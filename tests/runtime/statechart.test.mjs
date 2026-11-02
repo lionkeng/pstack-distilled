@@ -83,16 +83,37 @@ test("a successful model with no initial states stays valid", async t => {
   assert.equal(result.graph.states.size, 0);
 });
 
-function replay(t, { status, empty = false, name = "Login" }) {
+function replay(t, { status, empty = false, name = "Login", stop, evaluationError }) {
   const dir = fixture(t, {});
   const saved = path.join(dir, name);
   fs.cpSync(path.join(corpus, name), saved, { recursive: true });
   if (status !== undefined) fs.writeFileSync(path.join(saved, "ChartRun.exit"), `${status}\n`);
+  if (evaluationError) fs.appendFileSync(path.join(saved, "ChartRun.out"),
+    "\n@!@!@STARTMSG 2179:1 @!@!@\nThe second argument of \\div is 0.\n@!@!@ENDMSG 2179 @!@!@\n");
   if (empty) fs.writeFileSync(path.join(saved, "graph.dot"), "digraph {\n}\n");
   const out = path.join(dir, "out");
+  let java = path.join(scripts, "test/java.ts");
+  if (stop) {
+    const replayJava = java;
+    java = path.join(dir, "java.mjs");
+    fs.writeFileSync(java, [
+      "#!/usr/bin/env node",
+      'import fs from "node:fs";',
+      'import { spawnSync } from "node:child_process";',
+      'const args = process.argv.slice(2);',
+      `if (${JSON.stringify(stop)} === "killed" && args.includes("-dump")) {`,
+      `  fs.copyFileSync(${JSON.stringify(path.join(saved, "graph.dot"))}, args[args.indexOf("-dump") + 2] + ".dot");`,
+      '  process.kill(process.pid, "SIGKILL");',
+      '}',
+      `const r = spawnSync(process.execPath, [${JSON.stringify(replayJava)}, ...args], { stdio: "inherit" });`,
+      `if (${JSON.stringify(stop)} === "missing" && args.includes("-config")) fs.unlinkSync(${JSON.stringify(java)});`,
+      'process.exit(r.status ?? 2);',
+      "",
+    ].join("\n"), { mode: 0o755 });
+  }
   const r = spawnSync(process.execPath, [path.join(scripts, "statechart.ts"), path.join(saved, `${name}.tla`), "--out", out], {
     encoding: "utf8", timeout: 30000,
-    env: { ...process.env, JAVA: path.join(scripts, "test/java.ts"), TLA2TOOLS: path.join(dir, "replay.jar"), STATECHART_REPLAY: saved },
+    env: { ...process.env, JAVA: java, TLA2TOOLS: path.join(dir, "replay.jar"), STATECHART_REPLAY: saved },
   });
   assert.equal(r.error, undefined);
   return { ...r, out };
@@ -135,5 +156,23 @@ for (const name of ["CounterGuard", "TypeGuard"]) {
     const r = replay(t, { name });
     assert.equal(r.status, 1, r.stderr);
     for (const file of ["chart.mmd", "report.md"]) assert.equal(fs.readFileSync(path.join(r.out, file), "utf8"), fs.readFileSync(path.join(corpus, name, file), "utf8"));
+  });
+}
+
+for (const stop of ["killed", "missing"]) {
+  test(`a ${stop} drawing process cannot publish a chart`, t => {
+    const r = replay(t, { stop });
+    assert.equal(r.status, 2, r.stderr);
+    assert.equal(fs.existsSync(r.out), false);
+    assert.match(r.stderr, /TLC could not check/);
+  });
+}
+
+for (const empty of [false, true]) {
+  test(`division-by-zero exit 255 ${empty ? "rejects an empty" : "retains a useful"} partial graph`, t => {
+    const r = replay(t, { status: 255, evaluationError: true, empty });
+    assert.equal(r.status, empty ? 2 : 0, r.stderr);
+    assert.equal(fs.existsSync(r.out), !empty);
+    if (!empty) assert.match(fs.readFileSync(path.join(r.out, "report.md"), "utf8"), /exit 255/);
   });
 }

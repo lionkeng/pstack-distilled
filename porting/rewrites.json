@@ -961,6 +961,50 @@
           {
             "from": "    java: JAVA || found[1].stdout.trim(),",
             "to": "    java: java || found[1].stdout.trim(),"
+          },
+          {
+            "from": "import { boundRun, chartRun, configText } from \"./backends/cfg.ts\";",
+            "to": "import { boundRun, chartRun, configText, generatedNames } from \"./backends/cfg.ts\";"
+          },
+          {
+            "from": "const exitClass = (status: number | null) =>",
+            "to": "const DRAWING_EXITS = new Set([0, 11, 12, 13, 14, 75, 76, 77]);\n\nconst drawingCanContinue = (result: FileResult) => {\n  if (result.status !== null && DRAWING_EXITS.has(result.status)) return true;\n  if (result.status === 255)\n    for (const message of messagesOf(result.output))\n      if (\n        typeof message !== \"string\" && message.level === LEVEL.ERROR &&\n        message.code === EC.TLC_MODULE_DIVISION_BY_ZERO\n      ) return true;\n  return false;\n};\n\nconst exitClass = (status: number | null) =>"
+          },
+          {
+            "from": "    const spec = { ...readSpec({ module, sany, checks }), folder };",
+            "to": "    const spec = { ...readSpec({ module, sany, checks }), folder };\n    const generated = generatedNames([\n      module,\n      ...sany.identifiers,\n      ...cfg.sections.flatMap((section) => section.tokens.join(\" \").match(/[A-Za-z_]\\w*/g) ?? []),\n    ]);"
+          },
+          {
+            "from": "        if (bounded) extra.push(\"CONSTRAINT ChartBound\");",
+            "to": "        if (bounded) extra.push(`CONSTRAINT ${generated.bound}`);"
+          },
+          {
+            "from": "          bounded ? \"ChartBound\" : spec.module,",
+            "to": "          bounded ? generated.bound : spec.module,"
+          },
+          {
+            "from": "    fs.writeFileSync(path.join(dir, \"ChartBound.tla\"), boundRun(spec.module));",
+            "to": "    fs.writeFileSync(path.join(dir, `${generated.bound}.tla`), boundRun(spec.module, generated));"
+          },
+          {
+            "from": "      fs.writeFileSync(path.join(dir, \"ChartRun.tla\"), chartRun(spec, tag));",
+            "to": "      fs.writeFileSync(path.join(dir, `${generated.chart}.tla`), chartRun(spec, tag, generated));"
+          },
+          {
+            "from": "        ...config(\"ChartRun\", spec.written, [\"INVARIANT ChartMark\", \"CONSTRAINT ChartBudget\"]),",
+            "to": "        ...config(\"ChartRun\", spec.written, [\n          `INVARIANT ${generated.mark}`,\n          `CONSTRAINT ${generated.budget}`,\n        ]),"
+          },
+          {
+            "from": "        path.join(dir, \"graph\"),\n        \"ChartRun\",",
+            "to": "        path.join(dir, \"graph\"),\n        generated.chart,"
+          },
+          {
+            "from": "      if (!fs.existsSync(file)) throw failed(drawn);\n      if (readVerdict(messagesOf(drawn.output)).distinct <= CHART_STATES) {\n        const graph = parseDot(fileLines(file));",
+            "to": "      if (!drawingCanContinue(drawn) || !fs.existsSync(file))\n        throw failed(drawn);\n      const drawingStates = readVerdict(messagesOf(drawn.output)).distinct;\n      if (drawingStates <= CHART_STATES) {\n        const graph = parseDot(fileLines(file));\n        if (!graph.states.size) {\n          if (drawn.status !== 0) throw failed(drawn);\n          if (drawingStates > 0)\n            throw new Error(`TLC drawing for ${specFile} is empty despite reporting ${drawingStates} states.`);\n        }"
+          },
+          {
+            "from": "  type ConfigSection,\n  hasSection,",
+            "to": "  type ConfigSection,\n  EC,\n  hasSection,"
           }
         ],
         "scripts/test/cli.test.ts": [
@@ -987,6 +1031,32 @@
           {
             "from": "    assert.equal(r.stderr, \"\");\n    assert.equal(r.status, 1);\n    assert.equal(read(path.join(r.out, \"chart.mmd\")), read(path.join(dir, \"chart.mmd\")));",
             "to": "    assert.equal(r.error, undefined);\n    assert.equal(r.stderr, \"\");\n    assert.equal(r.status, 1);\n    assert.equal(read(path.join(r.out, \"chart.mmd\")), read(path.join(dir, \"chart.mmd\")));"
+          }
+        ],
+        "scripts/frontends/spec.ts": [
+          {
+            "from": "  definitions: Map<string, XmlNode>;\n",
+            "to": "  definitions: Map<string, XmlNode>;\n  identifiers: Set<string>;\n"
+          },
+          {
+            "from": "  const root = textOf(modules, \"RootModule\");",
+            "to": "  const identifiers = new Set<string>();\n  const reserve = (node: XmlNode) => {\n    if (node.tag === \"uniquename\" || node.tag === \"RootModule\")\n      for (const name of node.text.match(/[A-Za-z_]\\w*/g) ?? []) identifiers.add(name);\n    for (const nested of node.children) reserve(nested);\n  };\n  if (modules) reserve(modules);\n  const root = textOf(modules, \"RootModule\");"
+          },
+          {
+            "from": "  return { variables: variables.map((v) => v.name), definitions };",
+            "to": "  return { variables: variables.map((v) => v.name), definitions, identifiers };"
+          }
+        ],
+        "scripts/backends/cfg.ts": [
+          {
+            "from": "export const boundRun = (module: string) =>\n  [\n    `---- MODULE ChartBound ----`,\n    `EXTENDS ${module}`,\n    `ChartTLC == INSTANCE TLC`,\n    `ChartNaturals == INSTANCE Naturals`,\n    `ChartBound == ChartNaturals!<(ChartTLC!TLCGet(\"distinct\"), ${RERUN_STATES})`,\n    `====`,\n  ].join(\"\\n\");\n\nexport function chartRun({ module, variables, invariants }: Spec, tag: string) {\n  const every: string[] = [];\n  for (const name of invariants) every.push(`(IF ~${name} THEN {\"${name}\"} ELSE {}) \\\\cup `);\n  return [\n    `---- MODULE ChartRun ----`,\n    `EXTENDS ${module}`,\n    `ChartTLC == INSTANCE TLC`,\n    `ChartNaturals == INSTANCE Naturals`,\n    `ChartBudget == ChartNaturals!<=(ChartTLC!TLCGet(\"distinct\"), ${CHART_STATES})`,\n    `ChartBroken == ${every.join(\"\")}{}`,\n    `ChartMark == ChartBroken = {} \\\\/ ChartTLC!PrintT(<<\"${tag}\", <<${variables.join(\", \")}>>, ChartBroken>>)`,\n    `====`,\n  ].join(\"\\n\");\n}\n",
+            "to": "export function generatedNames(reserved: Iterable<string>) {\n  const used = new Set(reserved);\n  const fresh = (base: string) => {\n    let name = base;\n    for (let suffix = 1; used.has(name); suffix++) name = `${base}${suffix}`;\n    used.add(name);\n    return name;\n  };\n  return {\n    bound: fresh(\"ChartBound\"),\n    chart: fresh(\"ChartRun\"),\n    tlc: fresh(\"ChartTLC\"),\n    naturals: fresh(\"ChartNaturals\"),\n    budget: fresh(\"ChartBudget\"),\n    broken: fresh(\"ChartBroken\"),\n    mark: fresh(\"ChartMark\"),\n  };\n}\n\ntype GeneratedNames = ReturnType<typeof generatedNames>;\n\nexport const boundRun = (module: string, names: GeneratedNames) =>\n  [\n    `---- MODULE ${names.bound} ----`,\n    `EXTENDS ${module}`,\n    `${names.tlc} == INSTANCE TLC`,\n    `${names.naturals} == INSTANCE Naturals`,\n    `${names.bound} == ${names.naturals}!<(${names.tlc}!TLCGet(\"distinct\"), ${RERUN_STATES})`,\n    `====`,\n  ].join(\"\\n\");\n\nexport function chartRun({ module, variables, invariants }: Spec, tag: string, names: GeneratedNames) {\n  const every: string[] = [];\n  for (const name of invariants) every.push(`(IF ~${name} THEN {\"${name}\"} ELSE {}) \\\\cup `);\n  return [\n    `---- MODULE ${names.chart} ----`,\n    `EXTENDS ${module}`,\n    `${names.tlc} == INSTANCE TLC`,\n    `${names.naturals} == INSTANCE Naturals`,\n    `${names.budget} == ${names.naturals}!<=(${names.tlc}!TLCGet(\"distinct\"), ${CHART_STATES})`,\n    `${names.broken} == ${every.join(\"\")}{}`,\n    `${names.mark} == ${names.broken} = {} \\\\/ ${names.tlc}!PrintT(<<\"${tag}\", <<${variables.join(\", \")}>>, ${names.broken}>>)`,\n    `====`,\n  ].join(\"\\n\");\n}\n"
+          }
+        ],
+        "scripts/ir.ts": [
+          {
+            "from": "  TLC_DEADLOCK_REACHED: 2114,",
+            "to": "  TLC_DEADLOCK_REACHED: 2114,\n  TLC_MODULE_DIVISION_BY_ZERO: 2179,"
           }
         ]
       }
