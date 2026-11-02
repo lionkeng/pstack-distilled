@@ -829,7 +829,13 @@
       "description": "Turn a recurring correction into an enforceable check or reusable mechanism."
     },
     "principle-exhaust-the-design-space": {
-      "description": "Compare candidate designs for a novel interaction or architectural decision."
+      "description": "Compare candidate designs for a novel interaction or architectural decision.",
+      "body": [
+        {
+          "from": "It also applies to product design decisions where user experience depends on feel, not logic.",
+          "to": "Use this procedure for a novel interaction or architectural choice with no established solution. It also applies to product design decisions where user experience depends on feel, not logic.\n\n1. Set the comparison criteria before building the candidates. Use the user's goal and constraints.\n2. Build two or three distinct prototypes. Compare different approaches, not cosmetic variations of one approach.\n3. Compare the observed results against the same criteria. Record what each prototype proves and what remains untested.\n4. Choose the strongest candidate. Give the reasons, tradeoffs, and evidence behind the choice.\n\nKeep ordinary changes with an established solution outside this procedure."
+        }
+      ]
     },
     "principle-experience-first": {
       "description": "Evaluate product scope and UX tradeoffs from the user's experience."
@@ -1177,7 +1183,19 @@
           "from": "| Object args | Pass objects, not positional, so argument order is self-documenting. Skip on hot paths (per-frame render, tokenizers, parsers). |",
           "to": "| Function arguments | Match existing APIs. Consider an options object when positional parameters are ambiguous or numerous. |"
         }
-      ]
+      ],
+      "files": {
+        "references/patterns.md": [
+          {
+            "from": "Non-empty, via a variadic tuple:\n\n```ts\ntype NonEmpty<T> = [T, ...T[]];\n\n// Don't: T[] plus a length check every caller must repeat\nfunction pickWinner(entries: string[]): string {\n  if (entries.length === 0) throw new Error(\"no entries\");\n  return entries[Math.floor(Math.random() * entries.length)];\n}\n\n// Do: an empty value of the type can't exist\nfunction pickWinner(entries: NonEmpty<string>): string {\n  return entries[Math.floor(Math.random() * entries.length)];\n}\n```",
+            "to": "Non-empty, via a variadic tuple:\n\nA plain array needs an explicit check before returning its first entry. A nonempty tuple guarantees index zero. It does not guarantee an arbitrary computed index.\n\n```ts\ntype NonEmpty<T> = [T, ...T[]];\n\nfunction firstEntryFromArray(entries: string[]): string {\n  const first = entries[0];\n  if (first === undefined) throw new Error(\"no entries\");\n  return first;\n}\n\nfunction firstEntry(entries: NonEmpty<string>): string {\n  return entries[0];\n}\n```"
+          },
+          {
+            "from": "A time range, as start plus duration:\n\n```ts\n// Don't: a comment holds the invariant\ntype TimeRange = { start: Date; end: Date }; // start <= end\n\n// Do: a negative range can't be written; derive end when needed\ntype TimeRange = { start: Date; durationMs: number };\n```\n\nKeep `durationMs` a plain number. Brand it (per Branded types) only if a raw number could be passed where a duration is expected, not by reflex. Pick the representation that makes the bad state unconstructable, then expose the reading you need on top (`pairs.flat()`, a `rangeEnd()` helper).",
+            "to": "A plain `number` does not enforce numeric bounds. Use boundary validation for requirements such as a finite, nonnegative duration. Choose a representation that enforces the invariant, and expose the readings callers need."
+          }
+        ]
+      }
     },
     "unslop": {
       "description": "Edit prose for plain language and natural voice when drafting or revising substantial text or when explicitly requested.",
@@ -1210,6 +1228,18 @@
         {
           "from": "Each spawn below names a role line in `.pstack/models.md` and a default. Set `model` to that line's value, or to the default if `.pstack/models.md` or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the host delegation capability rejects a slug, use the default and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the worker runs on the current model. Use effort and speed controls only when the host exposes them, per the Subagents section of the **poteto-mode** skill.",
           "to": "Each investigator and synthesizer reads its role line in `.pstack/models.md`. Without a configured model ID, omit `model` so the parent model runs the role. Pass an ID only after the host confirms it is available; if rejected, omit it and say so. Use effort and speed controls only when the host exposes them."
+        }
+      ]
+    },
+    "ketchup": {
+      "body": [
+        {
+          "from": "A visual is a picture: a screenshot, a video, a Mermaid diagram, a chart or diagram from `/visualize`, or a generated image. A Markdown table is not a visual, even with before and after columns.",
+          "to": "A visual is a picture, such as a screenshot, video, Mermaid diagram, chart from an available chart capability, inline SVG, or generated image. A data table is a fallback when a chart cannot be rendered."
+        },
+        {
+          "from": "Draw diagrams and charts from facts you have: a Mermaid diagram for how things connect and a `/visualize` chart for numbers.",
+          "to": "Draw diagrams and charts from facts you have. Use a supported Mermaid diagram for how things connect. For numbers, use the host's available chart capability. If no chart tool is available, use inline SVG or a supported Mermaid chart. If neither format can be displayed, provide a concise data table and state that the chart cannot be rendered. Preserve the observed values in every format. Do not install a tool or write a file in the product repository to make a catch-up visual."
         }
       ]
     }

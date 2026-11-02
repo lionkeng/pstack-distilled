@@ -41,8 +41,9 @@ test("the generated nonempty example compiles with strict checked indexing", () 
 test("the generated tuple function rejects an empty array", () => {
   const result = compile(example() + "\nfirstEntry([]);\n");
   expect(result.status).not.toBe(0);
-  expect(result.stdout + result.stderr).toContain("TS2345");
-  expect(result.stdout + result.stderr).toContain("requires 1 element");
+  expect((result.stdout + result.stderr).match(/error TS\d+/g)).toEqual(["error TS2345"]);
+  expect(result.stdout + result.stderr).toContain("Argument of type '[]'");
+  expect(result.stdout + result.stderr).toContain("NonEmpty<string>");
 });
 
 test("the generated functions return the first entry and guard empty plain arrays", () => {

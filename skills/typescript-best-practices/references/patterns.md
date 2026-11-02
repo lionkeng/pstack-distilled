@@ -48,18 +48,19 @@ Build the type from parts that are all legal instead of restricting a loose type
 
 Non-empty, via a variadic tuple:
 
+A plain array needs an explicit check before returning its first entry. A nonempty tuple guarantees index zero. It does not guarantee an arbitrary computed index.
+
 ```ts
 type NonEmpty<T> = [T, ...T[]];
 
-// Don't: T[] plus a length check every caller must repeat
-function pickWinner(entries: string[]): string {
-  if (entries.length === 0) throw new Error("no entries");
-  return entries[Math.floor(Math.random() * entries.length)];
+function firstEntryFromArray(entries: string[]): string {
+  const first = entries[0];
+  if (first === undefined) throw new Error("no entries");
+  return first;
 }
 
-// Do: an empty value of the type can't exist
-function pickWinner(entries: NonEmpty<string>): string {
-  return entries[Math.floor(Math.random() * entries.length)];
+function firstEntry(entries: NonEmpty<string>): string {
+  return entries[0];
 }
 ```
 
@@ -75,17 +76,7 @@ Even length, as pairs:
 type Pairs<T> = [T, T][];
 ```
 
-A time range, as start plus duration:
-
-```ts
-// Don't: a comment holds the invariant
-type TimeRange = { start: Date; end: Date }; // start <= end
-
-// Do: a negative range can't be written; derive end when needed
-type TimeRange = { start: Date; durationMs: number };
-```
-
-Keep `durationMs` a plain number. Brand it (per Branded types) only if a raw number could be passed where a duration is expected, not by reflex. Pick the representation that makes the bad state unconstructable, then expose the reading you need on top (`pairs.flat()`, a `rangeEnd()` helper).
+A plain `number` does not enforce numeric bounds. Use boundary validation for requirements such as a finite, nonnegative duration. Choose a representation that enforces the invariant, and expose the readings callers need.
 
 ## Simplest total type
 
