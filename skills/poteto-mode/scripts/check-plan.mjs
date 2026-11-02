@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import process from "node:process";
+import path from "node:path";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 const RULE =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
@@ -17,7 +20,7 @@ const SUB_BLOCKS = [
 	"Merge.",
 ];
 const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
-const PROGRAM_MARKERS = ["git show origin/main:", "hourly run of the host's recurring-run capability", "status message"];
+const PROGRAM_MARKERS = ["status message"];
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
 	"names the evidence",
@@ -29,8 +32,9 @@ const PERF_ITEMS = ["Metric.", "Probe.", "Baseline.", "Rule."];
 const BOX = /^\s*- \[[ x]\] (.*)$/;
 
 const file = process.argv[2];
-if (!file) {
-	console.error("Usage: node check-plan.mjs <plan.md>");
+const startup = process.argv[3] === "--startup";
+if (!file || process.argv.length > 4 || (process.argv[3] && !startup)) {
+	console.error("Usage: node check-plan.mjs <plan.md> [--startup]");
 	process.exit(2);
 }
 
@@ -44,11 +48,14 @@ if (raw[0] === "---") {
 }
 
 const lines = [];
+const contexts = [];
+let contextLines = null;
+let contextLine = 0;
 let fence = null;
 const openingFence = (text) => {
 	const match = text.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
 	if (!match || (match[1][0] === "`" && match[2].includes("`"))) return null;
-	return { char: match[1][0], length: match[1].length };
+	return { char: match[1][0], length: match[1].length, info: match[2].trim() };
 };
 const closingFence = (text, opening) => {
 	const match = text.match(/^ {0,3}(`+|~+)[ \t]*$/);
@@ -63,12 +70,17 @@ for (let i = start; i < raw.length; i++) {
 	const n = i + 1;
 	let code = Boolean(fence);
 	if (fence && closingFence(text, fence)) {
+		if (contextLines !== null) {
+			contexts.push({ n: contextLine, text: contextLines.join("\n") });
+			contextLines = null;
+		}
 		code = false;
 		fence = null;
 	} else if (!fence) {
 		fence = openingFence(text);
 		code = Boolean(fence);
-	}
+		if (fence?.info === "pstack-plan-context") { contextLine = n; contextLines = []; }
+	} else if (contextLines !== null) contextLines.push(text);
 	lines.push({ n, text, code });
 	if (code) continue;
 	const prose = text
@@ -78,6 +90,69 @@ for (let i = start; i < raw.length; i++) {
 	if (/[\u2013\u2014]/.test(prose)) fail(n, "long dash");
 	if (/[\u2018\u2019\u201c\u201d]/.test(prose)) fail(n, "curly quote");
 	if (/: \S/.test(prose)) fail(n, "mid-sentence colon");
+}
+
+const sourceRoles = ["execution", "swarm", "verification", "opening-a-pr"];
+const nonempty = (value) => typeof value === "string" && value.trim().length > 0;
+const absolute = (value) => nonempty(value) && path.isAbsolute(value);
+const positive = (value) => Number.isSafeInteger(value) && value > 0;
+const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+if (contexts.length !== 1) fail(1, "expected exactly one pstack-plan-context block");
+else {
+	const { n, text } = contexts[0];
+	let context;
+	try { context = JSON.parse(text); }
+	catch { fail(n, "pstack-plan-context must contain valid JSON"); }
+	if (context !== undefined) {
+		if (!object(context)) fail(n, "pstack-plan-context must be an object");
+		else {
+			const product = context.product;
+			if (!object(product) || !absolute(product.root) || !nonempty(product.trunkRef))
+				fail(n, "product requires an absolute root and a nonempty trunkRef");
+			else {
+				try {
+					const resolved = execFileSync("git", ["-C", product.root, "rev-parse", "--verify", "--end-of-options", `${product.trunkRef}^{commit}`], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+					if (resolved !== product.trunkSha) fail(n, "product.trunkSha does not match trunkRef");
+				} catch { fail(n, "product.trunkRef must resolve in the product repository"); }
+			}
+			const sources = context.skillSources;
+			const found = new Set();
+			if (!Array.isArray(sources)) fail(n, "skillSources must be an array");
+			else for (const source of sources) {
+				if (!object(source) || !nonempty(source.role)) { fail(n, "each skillSources entry requires a role"); continue; }
+				if (found.has(source.role)) fail(n, `duplicate skillSources role ${source.role}`);
+				found.add(source.role);
+				if (!absolute(source.path)) { fail(n, `skillSources ${source.role} path must be absolute`); continue; }
+				if (typeof source.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(source.sha256)) {
+					fail(n, `skillSources ${source.role} requires a sha256 identity`); continue;
+				}
+				try {
+					if (!fs.statSync(source.path).isFile()) throw new Error("not a file");
+					const actual = createHash("sha256").update(fs.readFileSync(source.path)).digest("hex");
+					if (actual !== source.sha256) fail(n, `skillSources ${source.role} sha256 changed`);
+				} catch { fail(n, `skillSources ${source.role} path must be a readable file`); }
+			}
+			for (const role of sourceRoles) if (!found.has(role)) fail(n, `skillSources lacks required role ${role}`);
+			const audit = context.audit;
+			if (!object(audit)) fail(n, "audit must be an object");
+			else {
+				if (audit.mode !== "recurring" && audit.mode !== "poll") fail(n, "audit.mode must be recurring or poll");
+				if (!positive(audit.intervalSeconds)) fail(n, "audit.intervalSeconds must be a positive integer");
+				if (!positive(audit.maxWaitSeconds) || audit.maxWaitSeconds < audit.intervalSeconds)
+					fail(n, "audit.maxWaitSeconds must be a positive integer at least intervalSeconds");
+				if (!nonempty(audit.stopCondition)) fail(n, "audit.stopCondition is required");
+				if (!absolute(audit.progressPath)) fail(n, "audit.progressPath must be absolute");
+				else {
+					try {
+						if (!fs.statSync(path.dirname(audit.progressPath)).isDirectory()) throw new Error("missing parent");
+						if ((startup || fs.existsSync(audit.progressPath)) && !fs.statSync(audit.progressPath).isFile()) throw new Error("not a file");
+					} catch { fail(n, startup ? "audit.progressPath must exist as a file at startup" : "audit.progressPath needs an existing parent directory"); }
+				}
+				if ((audit.recurringHandle !== undefined || (startup && audit.mode === "recurring")) && !nonempty(audit.recurringHandle))
+					fail(n, "audit.recurringHandle is required for recurring startup");
+			}
+		}
+	}
 }
 
 const h2 = (l) => (!l.code && l.text.startsWith("## ") ? l.text.slice(3).trim() : null);

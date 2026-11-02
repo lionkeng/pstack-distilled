@@ -278,7 +278,25 @@
       ]
     },
     "automate-me": {
-      "description": "Create or update a personal working-style skill from the user's preferences and evidence."
+      "description": "Create or update a personal working-style skill from the user's preferences and evidence.",
+      "body": [
+        {
+          "from": "Update mode changes the rest of the flow:\n- Step 1 mines only history since the skill was last edited (`git log -1 --format=%cI <path>`).",
+          "to": "For a new skill, first select its intended path using the placement rules in step 4. Classify the selected destination from its path or nearest existing parent. Find its owning repository, if one exists. A globally installed skill can belong to a different repository from the product. Record either repository-managed or personal-local storage.\n\nUpdate mode changes the rest of the flow:\n- Step 1 uses a known checkpoint for the evidence window. For a tracked file, run `git -C <owning-repository> log -1 --format=%cI -- <repository-relative-path>`. For a new file, empty Git history, or personal-local storage, use a known host-exposed edit checkpoint or known history window. A file mtime does not prove a conversation cutoff. If no trustworthy checkpoint exists, use the current conversation and available evidence, and label unknown dates."
+        },
+        {
+          "from": "- Step 4 edits the existing file in place. Preserve sections the user hasn't contradicted. Revise ones with new evidence. Add new sections only for genuinely new rules.",
+          "to": "- Step 4 prepares the update separately. Preserve sections the user has not contradicted. Revise ones with new evidence. Add sections only for new rules. Keep the previous file until the replacement passes validation."
+        },
+        {
+          "from": "Author the skill against the Agent Skills specification and validate it with the host's available conformance workflow. Placement:",
+          "to": "Author the skill against the Agent Skills specification. Stage the draft separately and validate it with the host's available conformance workflow before replacing an existing skill. Preserve the previous file if validation fails. Placement:"
+        },
+        {
+          "from": "Work in a worktree off main. Commit and open a PR. Don't push to main directly.",
+          "to": "For repository-managed storage, use the owning repository's resolved default branch and an isolated worktree. Commit and open a PR only when that repository supports the delivery route and the user has authorized it. Otherwise report the validated local result and its delivery limit.\n\nFor personal-local storage, save only after validation succeeds. Save the skill locally and report its path and validation result. This route needs no commit or PR, Git history, or worktree. Do not initialize a repository solely to complete this flow."
+        }
+      ]
     },
     "benchmark-checklist": {
       "description": "Vet a performance measurement before reporting or acting on it."
@@ -422,6 +440,26 @@
           {
             "from": "with an explicit model per the Subagents section",
             "to": "with a confirmed configured model when available, or the parent model per the Subagents section"
+          },
+          {
+            "from": "- [ ] Read these from trunk at program start. Re-read them at every tick.\n  - [ ] `git show origin/main:<pstack-skills-directory>/poteto-mode/playbooks/<execution playbook>.md`\n  - [ ] `git show origin/main:<pstack-skills-directory>/swarm/SKILL.md`\n  - [ ] `git show origin/main:<verification harness path>`\n  - [ ] `git show origin/main:<pstack-skills-directory>/poteto-mode/playbooks/opening-a-pr.md`\n  - [ ] `git show origin/main:<pstack-skills-directory>/<each other leaf skill the program uses>`\n- [ ] On the operator's go, arm the audit tick as an hourly run of the host's recurring-run capability with the tick prompt below. Never leave the cadence to memory.\n",
+            "to": "- [ ] Record the product repository root, resolved default branch or explicit trunk ref, and its commit. Resolve the default through repository metadata, not a hard-coded branch name.\n- [ ] Record every instruction file in `skillSources`. Use the roles `execution`, `swarm`, `verification`, and `opening-a-pr`, plus a distinct role for each additional leaf. Read each resolved absolute path and record its SHA-256. Installed skills can live outside the product repository.\n- [ ] Fill the context block below. Choose `\"poll\"` for bounded active-session polling or `\"recurring\"` for an available host task. Both modes need a finite wait bound, stop condition, and durable progress path. Polling ends with the active session and resumes from that state on restart.\n\n```pstack-plan-context\n{\n  \"product\": { \"root\": \"<absolute product root>\", \"trunkRef\": \"<resolved trunk ref>\", \"trunkSha\": \"<trunk commit>\" },\n  \"skillSources\": [\n    { \"role\": \"execution\", \"path\": \"<absolute execution playbook>\", \"sha256\": \"<content hash>\" },\n    { \"role\": \"swarm\", \"path\": \"<absolute swarm skill>\", \"sha256\": \"<content hash>\" },\n    { \"role\": \"verification\", \"path\": \"<absolute verification instructions>\", \"sha256\": \"<content hash>\" },\n    { \"role\": \"opening-a-pr\", \"path\": \"<absolute PR playbook>\", \"sha256\": \"<content hash>\" }\n  ],\n  \"audit\": { \"mode\": \"poll\", \"intervalSeconds\": 60, \"maxWaitSeconds\": 3600, \"progressPath\": \"<absolute progress file>\", \"stopCondition\": \"<concrete completion or stop condition>\" }\n}\n```\n\n- [ ] Run `node <pstack-skills-directory>/poteto-mode/scripts/check-plan.mjs <plan.md>` before arming any task. Static validation does not require a recurring handle.\n- [ ] On the operator's go, create the progress file. In recurring mode, arm the host task, verify it through the host, and record its receipt in the progress file and its handle as `audit.recurringHandle`. In poll mode, start bounded active-session polling. Run `node <pstack-skills-directory>/poteto-mode/scripts/check-plan.mjs <plan.md> --startup` before dispatching work. The checker verifies local state and a declared handle, not the host task's liveness.\n"
+          },
+          {
+            "from": "Re-read the execution playbook from trunk.",
+            "to": "Re-read the instruction files from their recorded skillSources paths. Verify their hashes and review any source change before resuming. Check product trunk independently."
+          },
+          {
+            "from": "Both branch from `main`.",
+            "to": "Both branch from the recorded product trunk."
+          },
+          {
+            "from": "6. Run `node <pstack-skills-directory>/poteto-mode/scripts/check-plan.mjs <plan.md>` and fix every line it prints",
+            "to": "6. Record source identities and the chosen cadence in `pstack-plan-context`. Run `node <pstack-skills-directory>/poteto-mode/scripts/check-plan.mjs <plan.md>` and fix every line it prints"
+          },
+          {
+            "from": "Audit the operation against it and fix drift in this tick.",
+            "to": "Audit the operation against the execution playbook and fix drift in this tick."
           }
         ],
         "playbooks/orchestrate.md": [
@@ -492,6 +530,18 @@
           {
             "from": "/loop 1h status message",
             "to": "hourly run of the host's recurring-run capability status message"
+          },
+          {
+            "from": "import { mkdtempSync, rmSync, writeFileSync } from \"node:fs\";",
+            "to": "import { mkdtempSync, rmSync, writeFileSync } from \"node:fs\";\nimport { createHash } from \"node:crypto\";\nimport { execFileSync } from \"node:child_process\";"
+          },
+          {
+            "from": "\\`git show origin/main:\\` hourly run of the host's recurring-run capability status message",
+            "to": "CONTEXT_BLOCK\nstatus message"
+          },
+          {
+            "from": "\twriteFileSync(file, validPlan + example);",
+            "to": "\texecFileSync(\"git\", [\"init\", \"--quiet\", \"--template=\", \"-b\", \"develop\", directory]);\n\texecFileSync(\"git\", [\"-C\", directory, \"-c\", \"user.name=Test\", \"-c\", \"user.email=test@example.invalid\", \"-c\", \"core.hooksPath=/dev/null\", \"commit\", \"--allow-empty\", \"--quiet\", \"-m\", \"fixture\"]);\n\tconst sources = [\"execution\", \"swarm\", \"verification\", \"opening-a-pr\"].map((role) => {\n\t\tconst path = join(directory, `${role}.md`);\n\t\twriteFileSync(path, role);\n\t\treturn { role, path, sha256: createHash(\"sha256\").update(role).digest(\"hex\") };\n\t});\n\tconst context = { product: { root: directory, trunkRef: \"develop\", trunkSha: execFileSync(\"git\", [\"-C\", directory, \"rev-parse\", \"HEAD\"], { encoding: \"utf8\" }).trim() }, skillSources: sources, audit: { mode: \"poll\", intervalSeconds: 10, maxWaitSeconds: 60, progressPath: join(directory, \"progress.tsv\"), stopCondition: \"All checks pass\" } };\n\tconst block = \"```pstack-plan-context\\n\" + JSON.stringify(context, null, 2) + \"\\n```\";\n\twriteFileSync(file, validPlan.replace(\"CONTEXT_BLOCK\", block) + example);"
           }
         ],
         "scripts/watch-pr/types.ts": [
@@ -710,6 +760,32 @@
           {
             "from": "    schemaVersion: 1,",
             "to": "    schemaVersion: 2,"
+          }
+        ],
+        "scripts/check-plan.mjs": [
+          {
+            "from": "import process from \"node:process\";",
+            "to": "import process from \"node:process\";\nimport path from \"node:path\";\nimport { createHash } from \"node:crypto\";\nimport { execFileSync } from \"node:child_process\";"
+          },
+          {
+            "from": "const file = process.argv[2];\nif (!file) {\n\tconsole.error(\"Usage: node check-plan.mjs <plan.md>\");",
+            "to": "const file = process.argv[2];\nconst startup = process.argv[3] === \"--startup\";\nif (!file || process.argv.length > 4 || (process.argv[3] && !startup)) {\n\tconsole.error(\"Usage: node check-plan.mjs <plan.md> [--startup]\");"
+          },
+          {
+            "from": "const lines = [];\nlet fence = null;",
+            "to": "const lines = [];\nconst contexts = [];\nlet contextLines = null;\nlet contextLine = 0;\nlet fence = null;"
+          },
+          {
+            "from": "return { char: match[1][0], length: match[1].length };",
+            "to": "return { char: match[1][0], length: match[1].length, info: match[2].trim() };"
+          },
+          {
+            "from": "\tif (fence && closingFence(text, fence)) {\n\t\tcode = false;\n\t\tfence = null;\n\t} else if (!fence) {\n\t\tfence = openingFence(text);\n\t\tcode = Boolean(fence);\n\t}",
+            "to": "\tif (fence && closingFence(text, fence)) {\n\t\tif (contextLines !== null) {\n\t\t\tcontexts.push({ n: contextLine, text: contextLines.join(\"\\n\") });\n\t\t\tcontextLines = null;\n\t\t}\n\t\tcode = false;\n\t\tfence = null;\n\t} else if (!fence) {\n\t\tfence = openingFence(text);\n\t\tcode = Boolean(fence);\n\t\tif (fence?.info === \"pstack-plan-context\") { contextLine = n; contextLines = []; }\n\t} else if (contextLines !== null) contextLines.push(text);"
+          },
+          {
+            "from": "const h2 = (l) => (!l.code && l.text.startsWith(\"## \") ? l.text.slice(3).trim() : null);",
+            "to": "const sourceRoles = [\"execution\", \"swarm\", \"verification\", \"opening-a-pr\"];\nconst nonempty = (value) => typeof value === \"string\" && value.trim().length > 0;\nconst absolute = (value) => nonempty(value) && path.isAbsolute(value);\nconst positive = (value) => Number.isSafeInteger(value) && value > 0;\nconst object = (value) => value !== null && typeof value === \"object\" && !Array.isArray(value);\nif (contexts.length !== 1) fail(1, \"expected exactly one pstack-plan-context block\");\nelse {\n\tconst { n, text } = contexts[0];\n\tlet context;\n\ttry { context = JSON.parse(text); }\n\tcatch { fail(n, \"pstack-plan-context must contain valid JSON\"); }\n\tif (context !== undefined) {\n\t\tif (!object(context)) fail(n, \"pstack-plan-context must be an object\");\n\t\telse {\n\t\t\tconst product = context.product;\n\t\t\tif (!object(product) || !absolute(product.root) || !nonempty(product.trunkRef))\n\t\t\t\tfail(n, \"product requires an absolute root and a nonempty trunkRef\");\n\t\t\telse {\n\t\t\t\ttry {\n\t\t\t\t\tconst resolved = execFileSync(\"git\", [\"-C\", product.root, \"rev-parse\", \"--verify\", \"--end-of-options\", `${product.trunkRef}^{commit}`], { encoding: \"utf8\", stdio: [\"ignore\", \"pipe\", \"pipe\"] }).trim();\n\t\t\t\t\tif (resolved !== product.trunkSha) fail(n, \"product.trunkSha does not match trunkRef\");\n\t\t\t\t} catch { fail(n, \"product.trunkRef must resolve in the product repository\"); }\n\t\t\t}\n\t\t\tconst sources = context.skillSources;\n\t\t\tconst found = new Set();\n\t\t\tif (!Array.isArray(sources)) fail(n, \"skillSources must be an array\");\n\t\t\telse for (const source of sources) {\n\t\t\t\tif (!object(source) || !nonempty(source.role)) { fail(n, \"each skillSources entry requires a role\"); continue; }\n\t\t\t\tif (found.has(source.role)) fail(n, `duplicate skillSources role ${source.role}`);\n\t\t\t\tfound.add(source.role);\n\t\t\t\tif (!absolute(source.path)) { fail(n, `skillSources ${source.role} path must be absolute`); continue; }\n\t\t\t\tif (typeof source.sha256 !== \"string\" || !/^[a-f0-9]{64}$/.test(source.sha256)) {\n\t\t\t\t\tfail(n, `skillSources ${source.role} requires a sha256 identity`); continue;\n\t\t\t\t}\n\t\t\t\ttry {\n\t\t\t\t\tif (!fs.statSync(source.path).isFile()) throw new Error(\"not a file\");\n\t\t\t\t\tconst actual = createHash(\"sha256\").update(fs.readFileSync(source.path)).digest(\"hex\");\n\t\t\t\t\tif (actual !== source.sha256) fail(n, `skillSources ${source.role} sha256 changed`);\n\t\t\t\t} catch { fail(n, `skillSources ${source.role} path must be a readable file`); }\n\t\t\t}\n\t\t\tfor (const role of sourceRoles) if (!found.has(role)) fail(n, `skillSources lacks required role ${role}`);\n\t\t\tconst audit = context.audit;\n\t\t\tif (!object(audit)) fail(n, \"audit must be an object\");\n\t\t\telse {\n\t\t\t\tif (audit.mode !== \"recurring\" && audit.mode !== \"poll\") fail(n, \"audit.mode must be recurring or poll\");\n\t\t\t\tif (!positive(audit.intervalSeconds)) fail(n, \"audit.intervalSeconds must be a positive integer\");\n\t\t\t\tif (!positive(audit.maxWaitSeconds) || audit.maxWaitSeconds < audit.intervalSeconds)\n\t\t\t\t\tfail(n, \"audit.maxWaitSeconds must be a positive integer at least intervalSeconds\");\n\t\t\t\tif (!nonempty(audit.stopCondition)) fail(n, \"audit.stopCondition is required\");\n\t\t\t\tif (!absolute(audit.progressPath)) fail(n, \"audit.progressPath must be absolute\");\n\t\t\t\telse {\n\t\t\t\t\ttry {\n\t\t\t\t\t\tif (!fs.statSync(path.dirname(audit.progressPath)).isDirectory()) throw new Error(\"missing parent\");\n\t\t\t\t\t\tif ((startup || fs.existsSync(audit.progressPath)) && !fs.statSync(audit.progressPath).isFile()) throw new Error(\"not a file\");\n\t\t\t\t\t} catch { fail(n, startup ? \"audit.progressPath must exist as a file at startup\" : \"audit.progressPath needs an existing parent directory\"); }\n\t\t\t\t}\n\t\t\t\tif ((audit.recurringHandle !== undefined || (startup && audit.mode === \"recurring\")) && !nonempty(audit.recurringHandle))\n\t\t\t\t\tfail(n, \"audit.recurringHandle is required for recurring startup\");\n\t\t\t}\n\t\t}\n\t}\n}\n\nconst h2 = (l) => (!l.code && l.text.startsWith(\"## \") ? l.text.slice(3).trim() : null);"
           }
         ]
       },

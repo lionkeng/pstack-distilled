@@ -46,9 +46,7 @@ POTETO_COMPATIBILITY = (
 )
 
 EXPLICIT_ACTIVATION_PREFIX = "Explicit request or pstack routing only. "
-# Replaces check-plan.mjs's "/loop 1h" program marker. The `/loop 1h` literal
-# rule in porting/rewrites.json must produce this text in the plan template.
-CHECK_PLAN_LOOP_MARKER = "hourly run of the host's recurring-run capability"
+CHECK_PLAN_CONTEXT = "pstack-plan-context"
 
 SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
     (
@@ -754,23 +752,20 @@ def _safe_autopilot_merge(text: str) -> str:
 
 
 def _portable_check_plan(text: str) -> str:
-    old = '"/loop 1h"'
-    if old not in text:
-        raise PortError("check-plan.mjs: expected upstream /loop 1h program marker was not found")
-    return text.replace(old, json.dumps(CHECK_PLAN_LOOP_MARKER))
+    old = '["git show origin/main:", "/loop 1h", "status message"]'
+    if text.count(old) != 1:
+        raise PortError("check-plan.mjs: expected upstream program markers must occur exactly once")
+    return text.replace(old, '["status message"]')
 
 
-def _require_check_plan_marker_in_template(output_root: Path) -> None:
-    """Fail when check-plan.mjs would reject every plan copied from the converted template."""
-
+def _require_check_plan_context_in_template(output_root: Path) -> None:
     poteto = output_root / "poteto-mode"
     template = poteto / "playbooks" / "multi-phase-plan.md"
     if not (poteto / "scripts" / "check-plan.mjs").is_file() or not template.is_file():
         return
-    if CHECK_PLAN_LOOP_MARKER not in template.read_text(encoding="utf-8"):
-        raise PortError(
-            f"{template}: converted plan template lacks the check-plan.mjs marker {CHECK_PLAN_LOOP_MARKER!r}"
-        )
+    text = template.read_text(encoding="utf-8")
+    if not all(marker in text for marker in (CHECK_PLAN_CONTEXT, '"poll"', '"recurring"')):
+        raise PortError(f"{template}: converted plan template lacks the source and cadence context")
 
 
 def _copy_resource(
@@ -1024,7 +1019,7 @@ def port_skills(
     if no_comments.is_dir():
         _port_comment_reviewer(pstack_root, no_comments, rewriter)
     _remove_cross_skill_links(output_root)
-    _require_check_plan_marker_in_template(output_root)
+    _require_check_plan_context_in_template(output_root)
     unmatched = rewriter.unmatched()
     if require_rule_matches and unmatched:
         raise PortError(

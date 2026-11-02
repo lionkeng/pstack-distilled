@@ -171,7 +171,7 @@ Portable body.
         port_module.port_skills(source, output, PROJECT_ROOT / "porting" / "rewrites.json")
         return output
 
-    def test_new_poteto_phrases_and_check_plan_loop_marker(self) -> None:
+    def test_new_poteto_phrases_and_check_plan_context(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
             output = self._port_poteto_fixture(
                 Path(temporary),
@@ -182,7 +182,7 @@ Portable body.
                 "`cursor-team-kit`. Native mobile uses whatever simulator-driving skill the repo "
                 "has. A PR that touches two surfaces gets lanes on both. A surface with no control "
                 "skill is a risk in Appendix C, and its live block still names how each lane drives "
-                "it.\n" + self.LOOP_LINE,
+                'it.\n```pstack-plan-context\n{"audit":{"mode":"poll"}}\n```\nUse "recurring" when available.\n' + self.LOOP_LINE,
             )
             opening = (output / "poteto-mode" / "playbooks" / "opening-a-pr.md").read_text(
                 encoding="utf-8"
@@ -202,22 +202,15 @@ Portable body.
             self.assertIn("Verification harness.", plan)
             self.assertIn("through its verification harness", plan)
             self.assertIn("(default `auto`)", plan)
-            self.assertIn(
-                "arm the audit tick as an hourly run of the host's recurring-run capability with",
-                plan,
-            )
-            self.assertIn(
-                'const PROGRAM_MARKERS = ["git show origin/main:", '
-                "\"hourly run of the host's recurring-run capability\", \"status message\"];",
-                checker,
-            )
+            self.assertIn("pstack-plan-context", plan)
+            self.assertIn('const PROGRAM_MARKERS = ["status message"];', checker)
             self.assertNotIn("/loop", checker)
 
-    def test_plan_template_without_check_plan_marker_is_rejected(self) -> None:
+    def test_plan_template_without_source_and_cadence_context_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pstack-port-test-") as temporary:
             with self.assertRaises(port_module.PortError) as raised:
                 self._port_poteto_fixture(Path(temporary), "Arm the audit tick by hand.\n")
-            self.assertIn("lacks the check-plan.mjs marker", str(raised.exception))
+            self.assertIn("lacks the source and cadence context", str(raised.exception))
 
 
 class SkillOverrideTest(unittest.TestCase):

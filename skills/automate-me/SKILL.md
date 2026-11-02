@@ -32,10 +32,12 @@ Look recursively for `<project-skill-directory>/**/*-mode/SKILL.md` and `<user-s
 - Update the existing skill (default for repeat runs)
 - Start fresh (rare, ask why before doing it)
 
+For a new skill, first select its intended path using the placement rules in step 4. Classify the selected destination from its path or nearest existing parent. Find its owning repository, if one exists. A globally installed skill can belong to a different repository from the product. Record either repository-managed or personal-local storage.
+
 Update mode changes the rest of the flow:
-- Step 1 mines only history since the skill was last edited (`git log -1 --format=%cI <path>`).
+- Step 1 uses a known checkpoint for the evidence window. For a tracked file, run `git -C <owning-repository> log -1 --format=%cI -- <repository-relative-path>`. For a new file, empty Git history, or personal-local storage, use a known host-exposed edit checkpoint or known history window. A file mtime does not prove a conversation cutoff. If no trustworthy checkpoint exists, use the current conversation and available evidence, and label unknown dates.
 - Step 2 asks what's changed or missing, not what to capture from zero.
-- Step 4 edits the existing file in place. Preserve sections the user hasn't contradicted. Revise ones with new evidence. Add new sections only for genuinely new rules.
+- Step 4 prepares the update separately. Preserve sections the user has not contradicted. Revise ones with new evidence. Add sections only for new rules. Keep the previous file until the replacement passes validation.
 
 ### 1. Mine their history
 
@@ -77,7 +79,7 @@ The **poteto-mode** skill shows the shape. Read it for granularity. Don't copy i
 
 ### 4. Draft the skill
 
-Author the skill against the Agent Skills specification and validate it with the host's available conformance workflow. Placement:
+Author the skill against the Agent Skills specification. Stage the draft separately and validate it with the host's available conformance workflow before replacing an existing skill. Preserve the previous file if validation fails. Placement:
 
 - Path: preserve an existing mode skill's category. For a new mode, use `<project-skill-directory>/<handle>/<handle>-mode/SKILL.md` when the repo has an established personal category for that handle. Otherwise default to `<project-skill-directory>/<handle>-mode/SKILL.md` in the project (or `<user-skill-directory>/<handle>-mode/` if the user prefers a personal skill).
 - Handle: the user's first name or chosen identifier.
@@ -93,7 +95,9 @@ Show the draft to the user and take feedback. Expect multiple iterations. Cut ru
 
 ### 6. Land it
 
-Work in a worktree off main. Commit and open a PR. Don't push to main directly.
+For repository-managed storage, use the owning repository's resolved default branch and an isolated worktree. Commit and open a PR only when that repository supports the delivery route and the user has authorized it. Otherwise report the validated local result and its delivery limit.
+
+For personal-local storage, save only after validation succeeds. Save the skill locally and report its path and validation result. This route needs no commit or PR, Git history, or worktree. Do not initialize a repository solely to complete this flow.
 
 ## Guardrails
 
