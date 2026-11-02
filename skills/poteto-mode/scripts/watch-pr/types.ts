@@ -176,7 +176,8 @@ export interface MergedPr {
 export type MergeGateReason =
   | "closed-without-merge"
   | "draft-pr"
-  | "changes-requested";
+  | "changes-requested"
+  | "base-behind";
 export type MergeBlocker =
   | {
       readonly kind: "merge-conflicts";
@@ -227,10 +228,13 @@ export type QueryFailure =
       readonly detail: string;
       readonly rawValue: string;
     };
+export type WaitReason =
+  | { readonly kind: "pending-checks"; readonly pending: NonEmpty<PendingCheck> }
+  | { readonly kind: "mergeability-unknown" };
 /**
  * `frontier` names the lowest unmerged PR that is actually waiting, and
- * `pending` is that PR's checks only. Pooling every row's pending under the
- * bottom PR's number misattributed upstack waits to the frontier.
+ * a pending-checks reason contains that PR's checks only. Each reason
+ * stays attached to the PR whose state caused the wait.
  *
  * This decision serves single and `--stack` mode. Queued mode deliberately
  * reports its own merge frontier instead: when that PR is blocker-free it
@@ -241,7 +245,7 @@ export type QueryFailure =
 export interface WaitingDecision {
   readonly kind: "waiting";
   readonly frontier: PrContext;
-  readonly pending: NonEmpty<PendingCheck>;
+  readonly reason: WaitReason;
 }
 export type PrDecision =
   | { readonly kind: "blocker"; readonly blocker: MergeBlocker }
@@ -254,7 +258,7 @@ export type StackDecision =
   | { readonly kind: "clear"; readonly prs: NonEmpty<ReadyPr | MergedPr> };
 export type WatchMode = "single" | "stack" | "queued-stack";
 interface EventBase<K extends string, M extends WatchMode = WatchMode> {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly sequence: number;
   readonly observedAt: string;
   readonly mode: M;
@@ -283,10 +287,7 @@ export type ProgressVerdict =
   | (Progress<"WAITING"> & {
       readonly frontier: PrContext;
       readonly reason:
-        | {
-            readonly kind: "pending-checks";
-            readonly pending: NonEmpty<PendingCheck>;
-          }
+        | WaitReason
         | { readonly kind: "merge-queue"; readonly unmergedCount: number };
     })
   | (Progress<"ADVANCE", "queued-stack"> & {
@@ -334,6 +335,7 @@ export type TimeoutVerdict = Terminal<"TIMEOUT", 5> & {
         readonly kind: "pending-checks";
         readonly pending: NonEmpty<PendingCheck>;
       }
+    | { readonly kind: "mergeability-unknown"; readonly frontier: PrContext }
     | { readonly kind: "status-unavailable"; readonly failure: QueryFailure }
     | {
         readonly kind: "queued-stack";

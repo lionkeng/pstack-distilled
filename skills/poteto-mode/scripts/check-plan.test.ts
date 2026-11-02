@@ -1,4 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -20,7 +22,8 @@ ${rule}
 ### PR mechanics
 ### Verdict and merge
 ### Boot recipe
-\`git show origin/main:\` hourly run of the host's recurring-run capability status message
+CONTEXT_BLOCK
+status message
 
 ## PR 1
 **Depends on.** None.
@@ -53,7 +56,16 @@ Recorded.
 const runPlan = (example: string, expectedExit: number) => {
 	const directory = mkdtempSync(join(tmpdir(), "check-plan-test-"));
 	const file = join(directory, "plan.md");
-	writeFileSync(file, validPlan + example);
+	execFileSync("git", ["init", "--quiet", "--template=", "-b", "develop", directory]);
+	execFileSync("git", ["-C", directory, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "--allow-empty", "--quiet", "-m", "fixture"]);
+	const sources = ["execution", "swarm", "verification", "opening-a-pr"].map((role) => {
+		const path = join(directory, `${role}.md`);
+		writeFileSync(path, role);
+		return { role, path, sha256: createHash("sha256").update(role).digest("hex") };
+	});
+	const context = { product: { root: directory, trunkRef: "develop", trunkSha: execFileSync("git", ["-C", directory, "rev-parse", "HEAD"], { encoding: "utf8" }).trim() }, skillSources: sources, audit: { mode: "poll", intervalSeconds: 10, maxWaitSeconds: 60, progressPath: join(directory, "progress.tsv"), stopCondition: "All checks pass" } };
+	const block = "```pstack-plan-context\n" + JSON.stringify(context, null, 2) + "\n```";
+	writeFileSync(file, validPlan.replace("CONTEXT_BLOCK", block) + example);
 	try {
 		const result = spawnSync("node", [checker, file], { encoding: "utf8" });
 		expect(result.status).toBe(expectedExit);

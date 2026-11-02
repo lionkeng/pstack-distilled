@@ -152,9 +152,8 @@ function gateReason(
   if (row.kind === "merged") return null;
   if (row.kind === "closed") return "closed-without-merge";
   if (row.facts.isDraft && !allowDraft) return "draft-pr";
-  return row.facts.reviewDecision === "CHANGES_REQUESTED"
-    ? "changes-requested"
-    : null;
+  if (row.facts.reviewDecision === "CHANGES_REQUESTED") return "changes-requested";
+  return row.facts.mergeStateStatus === "BEHIND" ? "base-behind" : null;
 }
 function gateBlocker(
   row: T.PrSnapshot,
@@ -181,6 +180,8 @@ function readyContribution(
   if (
     row.kind !== "open" ||
     row.ci.kind !== "ci-clean" ||
+    row.facts.mergeable !== "MERGEABLE" ||
+    row.facts.mergeStateStatus === "UNKNOWN" ||
     row.threads.length !== 0 ||
     conflictBlocker(row) !== null ||
     gateReason(row, allowDraft) !== null
@@ -203,6 +204,22 @@ function readyContribution(
     },
   };
 }
+function waitingDecision(row: T.PrSnapshot): T.WaitingDecision | null {
+  if (row.kind !== "open") return null;
+  if (row.ci.kind === "ci-pending")
+    return {
+      kind: "waiting",
+      frontier: row.context,
+      reason: { kind: "pending-checks", pending: row.ci.pending },
+    };
+  if (row.facts.mergeable === "UNKNOWN" || row.facts.mergeStateStatus === "UNKNOWN")
+    return {
+      kind: "waiting",
+      frontier: row.context,
+      reason: { kind: "mergeability-unknown" },
+    };
+  return null;
+}
 export function classifyPr(
   row: T.PrSnapshot,
   allowDraft = false
@@ -214,8 +231,8 @@ export function classifyPr(
     gateBlocker(row, allowDraft),
   ])
     if (blocker !== null) return { kind: "blocker", blocker };
-  if (row.kind === "open" && row.ci.kind === "ci-pending")
-    return { kind: "waiting", frontier: row.context, pending: row.ci.pending };
+  const waiting = waitingDecision(row);
+  if (waiting !== null) return waiting;
   const ready = readyContribution(row, allowDraft);
   if (ready === null) throw new Error("snapshot has no classified decision");
   return ready.kind === "merged-pr"
@@ -235,13 +252,10 @@ export function selectTierMajorStackDecision(
     const blocker = gateBlocker(row, allowDraft);
     if (blocker !== null) return { kind: "blocker", blocker };
   }
-  for (const row of rows)
-    if (row.kind === "open" && row.ci.kind === "ci-pending")
-      return {
-        kind: "waiting",
-        frontier: row.context,
-        pending: row.ci.pending,
-      };
+  for (const row of rows) {
+    const waiting = waitingDecision(row);
+    if (waiting !== null) return waiting;
+  }
   const prs = nonEmpty(
     rows
       .map((row) => readyContribution(row, allowDraft))
@@ -256,7 +270,7 @@ export const queryBackoffSeconds = (
   failures: number
 ): number => Math.min(Math.max(interval, 60) * 2 ** (failures - 1), 300);
 interface Envelope<M extends T.WatchMode> {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly sequence: number;
   readonly observedAt: string;
   readonly mode: M;
@@ -287,7 +301,7 @@ export function verdictFactory<M extends T.WatchMode>(
     override?: T.WatchMode
   ): Envelope<T.WatchMode> & P {
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       sequence: (sequence += 1),
       observedAt: clock.observedAt(),
       mode: override ?? mode,
@@ -489,7 +503,7 @@ export async function runSimple(args: {
         kind: "WAITING",
         terminal: false,
         frontier: decision.frontier,
-        reason: { kind: "pending-checks", pending: decision.pending },
+        reason: decision.reason,
       })
     );
     return {
@@ -500,7 +514,9 @@ export async function runSimple(args: {
           kind: "TIMEOUT",
           terminal: true,
           exitCode: 5,
-          reason: { kind: "pending-checks", pending: decision.pending },
+          reason: decision.reason.kind === "mergeability-unknown"
+            ? { ...decision.reason, frontier: decision.frontier }
+            : decision.reason,
         }),
     };
   };
@@ -620,18 +636,14 @@ export type QueueEvaluation =
   | {
       readonly kind: "timeout";
       readonly state: QueueState;
-      readonly frontier: T.PrContext;
-      readonly unmergedCount: number;
+      readonly reason: T.TimeoutVerdict["reason"];
     }
   | {
       readonly kind: "waiting";
       readonly state: QueueState;
       readonly frontier: T.PrContext;
       readonly reason:
-        | {
-            readonly kind: "pending-checks";
-            readonly pending: T.NonEmpty<T.PendingCheck>;
-          }
+        | T.WaitReason
         | { readonly kind: "merge-queue"; readonly unmergedCount: number };
       readonly emit: boolean;
     };
@@ -672,24 +684,22 @@ export function evaluateQueue(
       frontier,
       remaining: active.length,
     };
+  const waiting = waitingDecision(rows[0]);
   if (deadlinePassed(state.startedAt, options, now))
     return {
       kind: "timeout",
       state: { ...state, frontier },
-      frontier,
-      unmergedCount: active.length,
+      reason: waiting?.reason.kind === "mergeability-unknown"
+        ? { kind: "mergeability-unknown", frontier }
+        : { kind: "queued-stack", frontier, unmergedCount: active.length },
     };
-  const row = rows[0];
-  const pending =
-    row.kind === "open" && row.ci.kind === "ci-pending" ? row.ci.pending : null;
-  const reason =
-    pending === null
-      ? ({ kind: "merge-queue", unmergedCount: active.length } as const)
-      : ({ kind: "pending-checks", pending } as const);
+  const reason = waiting?.reason ?? { kind: "merge-queue", unmergedCount: active.length } as const;
   const key =
     reason.kind === "pending-checks"
       ? `pending:${frontier.number}:${reason.pending.length}`
-      : `queue:${frontier.number}:${reason.unmergedCount}`;
+      : reason.kind === "mergeability-unknown"
+        ? `mergeability:${frontier.number}`
+        : `queue:${frontier.number}:${reason.unmergedCount}`;
   return {
     kind: "waiting",
     state: { ...state, frontier, lastWaitKey: key },
@@ -797,11 +807,7 @@ export async function runQueued(args: {
             kind: "TIMEOUT",
             terminal: true,
             exitCode: 5,
-            reason: {
-              kind: "queued-stack",
-              frontier: evaluation.frontier,
-              unmergedCount: evaluation.unmergedCount,
-            },
+            reason: evaluation.reason,
           }),
         };
       case "waiting":

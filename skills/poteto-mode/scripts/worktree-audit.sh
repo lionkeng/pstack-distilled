@@ -27,8 +27,22 @@ repo="${1:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 cd "$repo" || exit 1
 git rev-parse --git-dir >/dev/null 2>&1 || { echo "error: not a git repo: $repo" >&2; exit 1; }
 
-# Main worktree is the first entry; everything else is a candidate.
-main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+audit_tmp=$(mktemp -d) || exit 1
+trap 'rm -rf "$audit_tmp"' EXIT
+if ! git worktree list --porcelain -z > "$audit_tmp/worktrees"; then
+	echo "error: could not list worktrees" >&2
+	exit 1
+fi
+main_wt=""
+while IFS= read -r -d '' record; do
+	case "$record" in 'worktree '*) main_wt=${record#worktree }; break ;; esac
+done < "$audit_tmp/worktrees"
+[ -n "$main_wt" ] || { echo "error: worktree list has no main worktree" >&2; exit 1; }
+
+hold_error() {
+	printf 'error: could not %s for %q\n' "$1" "$wt" >&2
+	printf '?\t?\t?\terror\t?\t?\t?\thold-error\t%q\n' "$wt"
+}
 
 if [ -z "$base" ]; then
 	for cand in "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)" origin/main origin/master; do
@@ -58,7 +72,7 @@ fi
 # PR state by branch, fetched once as [{number, state, head}] with a lowercase
 # state. Origin when its CLI can read this repo's PRs, otherwise gh. Empty when
 # neither can.
-prs=$(mktemp)
+prs="$audit_tmp/prs"
 if command -v origin >/dev/null 2>&1 \
 	&& raw=$(origin pr list --author "@me" --state all --limit 1000 \
 		--json number,status,headRef 2>/dev/null); then
@@ -77,11 +91,20 @@ now=$(date +%s)
 echo "# base: $base"
 printf "SIZE\tAGE\tMERGED\tDIRTY\tREMOTE\tPR\tLAST_CHAT\tBUCKET\tWORKTREE\n"
 
-git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt; do
-	[ "$wt" = "$main_wt" ] && continue
+wt=""; locked=no
+while IFS= read -r -d '' record; do
+	case "$record" in
+	'worktree '*) wt=${record#worktree }; locked=no; continue ;;
+	locked|locked\ *) locked=yes; continue ;;
+	'') ;;
+	*) continue ;;
+	esac
+	[ -z "$wt" ] || [ "$wt" = "$main_wt" ] && continue
 
-	size=$(du -sh "$wt" 2>/dev/null | awk '{print $1}')
-	head=$(git -C "$wt" rev-parse HEAD 2>/dev/null)
+	size=$(du -sh "$wt" 2>/dev/null | awk 'NR == 1 {print $1; exit}')
+	if ! head=$(git -C "$wt" rev-parse HEAD 2>/dev/null); then
+		hold_error "read HEAD"; continue
+	fi
 	head_ts=$(git -C "$wt" log -1 --format='%ct' HEAD 2>/dev/null || echo 0)
 	age=$([ "$head_ts" -gt 0 ] 2>/dev/null && echo "$(( (now - head_ts) / 86400 ))d" || echo "?")
 
@@ -89,12 +112,18 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 	# real signal; merge-base only catches fast-forward/rebase merges.
 	git merge-base --is-ancestor "$head" "$base" 2>/dev/null && merged=YES || merged=no
 
-	# Distinguish real WIP (tracked edits) from disposable untracked scratch.
-	porcelain=$(git -C "$wt" status --porcelain 2>/dev/null)
-	if [ -z "$porcelain" ]; then dirty=clean
-	elif printf '%s\n' "$porcelain" | grep -qv '^??'; then
-		dirty="wip:$(printf '%s\n' "$porcelain" | grep -cv '^??')"
-	else dirty="scratch:$(printf '%s\n' "$porcelain" | grep -c '^??')"; fi
+	if ! git -C "$wt" status --porcelain -z --untracked-files=no > "$audit_tmp/tracked" 2>/dev/null; then
+		hold_error "read tracked status"; continue
+	fi
+	if ! git -C "$wt" ls-files --others --exclude-standard -z > "$audit_tmp/untracked" 2>/dev/null; then
+		hold_error "list untracked files"; continue
+	fi
+	if ! git -C "$wt" ls-files --others --ignored --exclude-standard -z > "$audit_tmp/ignored" 2>/dev/null; then
+		hold_error "list ignored files"; continue
+	fi
+	if [ -s "$audit_tmp/tracked" ]; then dirty=wip
+	elif [ -s "$audit_tmp/untracked" ] || [ -s "$audit_tmp/ignored" ]; then dirty=local-files
+	else dirty=clean; fi
 
 	branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null || echo "")
 	if [ -z "$branch" ]; then remote=detached
@@ -121,7 +150,11 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 	fi
 	recent=$([ "$last_ts" -gt 0 ] 2>/dev/null && [ $(( (now - last_ts) / 86400 )) -le 4 ] && echo yes || echo no)
 
-	case "$dirty" in wip:*) bucket=hold-wip ;; *)
+	case "$dirty:$locked" in
+	*:yes) bucket=hold-locked ;;
+	wip:*) bucket=hold-wip ;;
+	local-files:*) bucket=hold-local-files ;;
+	*)
 		case "$pr" in */open|*/draft) bucket=hold-open-pr ;; *)
 			if [ "$recent" = yes ]; then bucket=verify-recent-chat
 			elif [ "$merged" = YES ] || [ "$pr" != "-" ]; then bucket=safe
@@ -129,8 +162,6 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 		esac ;;
 	esac
 
-	printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+	printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%q\n" \
 		"$size" "$age" "$merged" "$dirty" "$remote" "$pr" "$last" "$bucket" "$wt"
-done | sort -t$'\t' -k1,1 -rh
-
-rm -f "$prs"
+done < "$audit_tmp/worktrees" | sort -t$'\t' -k1,1 -rh
