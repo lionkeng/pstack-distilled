@@ -404,14 +404,24 @@ def _apply_transaction(
         writes.append((label, target, content, backup, existed))
 
     # Before the try: its rollback deletes the output, which must stay intact if this fails.
-    if skills_changed and output_existed:
-        _carry_git_ignored(output, staged_output)
+    if skills_changed:
+        generated_skills = _tree_snapshot(staged_output)
+        if output_existed:
+            _carry_git_ignored(output, staged_output)
 
     try:
         if skills_changed:
             if output_existed:
                 os.replace(str(output), str(backup_output))
             os.replace(str(staged_output), str(output))
+            installed_skills = _tree_snapshot(output)
+            if installed_skills != generated_skills:
+                changes = _classify_changes(generated_skills, installed_skills)
+                paths = sorted(path for group in changes.values() for path in group)
+                raise SyncError(
+                    "installed skills differ from generated output under Git ignore rules: "
+                    f"{', '.join(paths)}; previous output preserved"
+                )
         for _label, target, content, _backup, _existed in writes:
             _write_atomic(target, content)
     except Exception:
