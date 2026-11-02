@@ -23,7 +23,7 @@ from sync_upstream import (  # noqa: E402
     _sha256_bytes,
     _tree_digest,
 )
-from validate_skills import validate_skills  # noqa: E402
+from validate_skills import git_ignored_paths, is_git_ignored, validate_skills  # noqa: E402
 
 
 def verify_lock(repo_root: Path, config_path: Path) -> List[str]:
@@ -73,7 +73,10 @@ def verify_lock(repo_root: Path, config_path: Path) -> List[str]:
                 f"!= lock {output.get('sha256')}"
             )
     if skills_root.is_dir():
-        actual_count = sum(1 for path in skills_root.iterdir() if path.is_dir())
+        ignored = git_ignored_paths(skills_root)
+        actual_count = sum(
+            1 for path in skills_root.iterdir() if path.is_dir() and not is_git_ignored(path, ignored)
+        )
         if output.get("skill_count") != actual_count:
             errors.append(
                 f"generated skill count drift: {actual_count} != lock {output.get('skill_count')}"

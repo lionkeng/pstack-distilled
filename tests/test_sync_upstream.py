@@ -23,6 +23,7 @@ in the Software without restriction.
 SYNC = PROJECT_ROOT / "scripts" / "sync_upstream.py"
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 import sync_upstream as sync_module  # noqa: E402
+import validate_skills as validate_module  # noqa: E402
 
 
 class SyncUpstreamTest(unittest.TestCase):
@@ -308,6 +309,99 @@ Changed upstream.
         check = self._sync(check=True)
         self.assertEqual(check.returncode, 1, check.stderr)
         self.assertIn("would update", check.stdout)
+        self.assertEqual(self._snapshot_downstream(), before)
+
+    def test_git_ignored_files_in_the_output_survive_check_and_sync(self) -> None:
+        self._git(self.downstream, "init", "--quiet")
+        (self.downstream / ".gitignore").write_text("node_modules/\n.pstack-sync-*/\n", encoding="utf-8")
+        first = self._sync()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        modules = self.downstream / "skills/alpha/scripts/node_modules"
+        (modules / ".bin").mkdir(parents=True)
+        (modules / "README.md").write_text("Run it in Cursor.\n", encoding="utf-8")
+        (modules / ".bin/tool").symlink_to("../README.md")
+
+        check = self._sync(check=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
+
+        self._write(
+            "pstack/skills/beta/SKILL.md",
+            "---\nname: beta\ndescription: Explain beta behavior. Use when beta is in scope.\n---\n\n"
+            "# Beta\n\nKeep this skill portable and small.\n",
+        )
+        self._commit_upstream("upstream v2")
+        second = self._sync()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertIn("portable and small", (self.downstream / "skills/beta/SKILL.md").read_text(encoding="utf-8"))
+        self.assertEqual((modules / "README.md").read_text(encoding="utf-8"), "Run it in Cursor.\n")
+        self.assertTrue((modules / ".bin/tool").is_symlink())
+        self.assertEqual((modules / ".bin/tool").readlink(), Path("../README.md"))
+        lock = json.loads((self.downstream / "upstream.lock.json").read_text(encoding="utf-8"))
+        self.assertEqual(lock["output"]["sha256"], sync_module._tree_digest(self.downstream / "skills"))
+        before = self._snapshot_downstream()
+        check = self._sync(check=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
+        self.assertEqual(self._snapshot_downstream(), before)
+
+    def test_changed_nested_ignore_rules_abort_without_mutation(self) -> None:
+        for change in ("removed", "narrowed"):
+            with self.subTest(change=change):
+                self.downstream = self.root / change
+                self.downstream.mkdir()
+                self._git(self.downstream, "init", "--quiet")
+                (self.downstream / ".gitignore").write_text(".pstack-sync-*/\n", encoding="utf-8")
+                manifest = self.downstream / ".claude-plugin/plugin.json"
+                manifest.parent.mkdir()
+                manifest.write_text('{"name": "pstack", "version": "0.1.0"}\n', encoding="utf-8")
+                self._write("pstack/LICENSE", UPSTREAM_LICENSE)
+                self._write("pstack/skills/alpha/scripts/.gitignore", "local-cache/\n")
+                self._commit_upstream("ignore local cache")
+                first = self._sync()
+                self.assertEqual(first.returncode, 0, first.stderr)
+                cache = self.downstream / "skills/alpha/scripts/local-cache"
+                cache.mkdir()
+                (cache / "data.txt").write_text("local cache\n", encoding="utf-8")
+                (cache / "kept.txt").write_text("still ignored\n", encoding="utf-8")
+                (cache / "link").symlink_to("data.txt")
+                before = self._snapshot_downstream()
+                lock = json.loads((self.downstream / "upstream.lock.json").read_text(encoding="utf-8"))
+
+                if change == "removed":
+                    (self.upstream / "pstack/skills/alpha/scripts/.gitignore").unlink()
+                else:
+                    self._write("pstack/skills/alpha/scripts/.gitignore", "local-cache/kept.txt\nlocal-cache/link\n")
+                self._write("pstack/LICENSE", UPSTREAM_LICENSE.replace("2026", "2027"))
+                self._commit_upstream(f"{change} local cache ignore rule")
+
+                for _ in range(2):
+                    failed = self._sync()
+                    self.assertEqual(failed.returncode, 2, failed.stdout)
+                    self.assertEqual(self._snapshot_downstream(), before)
+                    self.assertEqual((cache / "data.txt").read_text(encoding="utf-8"), "local cache\n")
+                    self.assertTrue((cache / "link").is_symlink())
+                    self.assertEqual((cache / "link").readlink(), Path("data.txt"))
+                    self.assertEqual(
+                        lock["output"]["sha256"], sync_module._tree_digest(self.downstream / "skills")
+                    )
+
+    def test_nested_ignore_rule_removal_without_local_files_succeeds(self) -> None:
+        self._git(self.downstream, "init", "--quiet")
+        (self.downstream / ".gitignore").write_text(".pstack-sync-*/\n", encoding="utf-8")
+        self._write("pstack/skills/alpha/scripts/.gitignore", "local-cache/\n")
+        self._commit_upstream("ignore local cache")
+        first = self._sync()
+        self.assertEqual(first.returncode, 0, first.stderr)
+
+        (self.upstream / "pstack/skills/alpha/scripts/.gitignore").unlink()
+        self._commit_upstream("remove local cache ignore rule")
+        second = self._sync()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertFalse((self.downstream / "skills/alpha/scripts/.gitignore").exists())
+        lock = json.loads((self.downstream / "upstream.lock.json").read_text(encoding="utf-8"))
+        self.assertEqual(lock["output"]["sha256"], sync_module._tree_digest(self.downstream / "skills"))
+        before = self._snapshot_downstream()
+        check = self._sync(check=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
         self.assertEqual(self._snapshot_downstream(), before)
 
     def test_folded_yaml_description_is_imported(self) -> None:
@@ -740,6 +834,87 @@ class ApplyTransactionTest(unittest.TestCase):
                 (repo / "upstream.lock.json").read_text(encoding="utf-8"), "old lock\n"
             )
             self.assertEqual(plugin.read_text(encoding="utf-8"), "old plugin\n")
+
+
+class GitIgnoredFilesTest(unittest.TestCase):
+    """A skill's tooling can install git-ignored files, such as node_modules, into a working copy."""
+
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory(prefix="pstack-ignored-test-")
+        self.repo = Path(self.temporary.name)
+        subprocess.run(["git", "init", "--quiet"], cwd=str(self.repo), check=True)
+        (self.repo / ".gitignore").write_text("node_modules/\n.pstack-sync-*/\n", encoding="utf-8")
+        self.skills = self.repo / "skills"
+        self._write_skill(self.skills, "Body.")
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    @staticmethod
+    def _write_skill(root: Path, body: str) -> None:
+        scripts = root / "alpha" / "scripts"
+        scripts.mkdir(parents=True)
+        (root / "alpha" / "SKILL.md").write_text(
+            f"---\nname: alpha\ndescription: Explain alpha.\n---\n\n# Alpha\n\n{body}\n", encoding="utf-8"
+        )
+        (scripts / "run.mjs").write_text("console.log('alpha');\n", encoding="utf-8")
+
+    @staticmethod
+    def _install_node_modules(skill: Path) -> Path:
+        modules = skill / "scripts" / "node_modules"
+        (modules / ".bin").mkdir(parents=True)
+        (modules / "README.md").write_text("Run it in Cursor. See [docs](./missing.md).\n", encoding="utf-8")
+        (modules / ".bin" / "tool").symlink_to("../README.md")
+        return modules
+
+    def test_checks_skip_ignored_files_but_not_others(self) -> None:
+        digest_before = sync_module._tree_digest(self.skills)
+        self._install_node_modules(self.skills / "alpha")
+
+        self.assertEqual(validate_module.validate_skills(self.skills), [])
+        self.assertEqual(sync_module._tree_digest(self.skills), digest_before)
+
+        (self.skills / "alpha" / "link").symlink_to("SKILL.md")
+        errors = validate_module.validate_skills(self.skills)
+        self.assertEqual(errors, [f"{self.skills / 'alpha' / 'link'}: symlinks are not permitted in portable skills"])
+
+    def test_staging_tree_inside_an_ignored_directory_gets_no_exemptions(self) -> None:
+        staged = self.repo / ".pstack-sync-1" / "skills"
+        self._write_skill(staged, "Body.")
+        self._install_node_modules(staged / "alpha")
+
+        errors = "\n".join(validate_module.validate_skills(staged))
+        self.assertIn("symlinks are not permitted", errors)
+        self.assertIn("contains Cursor runtime name", errors)
+        with self.assertRaisesRegex(sync_module.SyncError, "cannot contain symlinks"):
+            sync_module._tree_snapshot(staged)
+
+    def test_transaction_carries_ignored_files_into_the_new_tree(self) -> None:
+        modules = self._install_node_modules(self.skills / "alpha")
+        dropped = self.skills / "alpha" / "old-scripts"
+        dropped.mkdir()
+        (dropped / "tool.mjs").write_text("console.log('old');\n", encoding="utf-8")
+        self._install_node_modules(dropped)
+        transaction = self.repo / ".pstack-sync-1"
+        staged = transaction / "skills"
+        self._write_skill(staged, "New body.")
+
+        sync_module._apply_transaction(
+            repo_root=self.repo,
+            output_path=Path("skills"),
+            staged_output=staged,
+            license_path=Path("LICENSE"),
+            license_bytes=b"license\n",
+            lock_path=Path("upstream.lock.json"),
+            lock_bytes=b"lock\n",
+            skills_changed=True,
+            transaction_root=transaction,
+        )
+
+        self.assertIn("New body.", (self.skills / "alpha" / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertTrue((modules / "README.md").is_file())
+        self.assertTrue((modules / ".bin" / "tool").is_symlink())
+        self.assertFalse((self.skills / "alpha" / "old-scripts").exists())
 
 
 if __name__ == "__main__":
