@@ -15,6 +15,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
+
       - name: Test synchronization automation
         run: python3 -m unittest discover -s tests -v
 
@@ -23,3 +28,97 @@ jobs:
 
       - name: Verify generated artifact lock
         run: python3 scripts/verify_lock.py
+
+      - name: Reproduce the locked generated output
+        run: python3 scripts/sync_upstream.py --regenerate --check
+
+  runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install bundled tool dependencies
+        working-directory: skills/poteto-mode/scripts
+        run: bun install --frozen-lockfile
+
+      - name: Test bundled watcher and plan checker
+        working-directory: skills/poteto-mode/scripts
+        run: |
+          bun test watch-pr check-plan.test.ts
+          bun run typecheck
+
+      - name: Test generated runtime and Markdown contracts
+        run: >-
+          bun test
+          tests/runtime/watch-pr-readiness.test.ts
+          tests/runtime/check-plan-portability.test.ts
+          tests/runtime/type-examples.test.ts
+
+  statechart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      STATECHART_DIFFERENTIAL_SEED: "1"
+      STATECHART_DIFFERENTIAL_RUNS: "20"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Verify the pinned TLC toolchain
+        shell: bash
+        run: |
+          tlc_jar="$RUNNER_TEMP/tla2tools.jar"
+          curl --fail --location --retry 3 --output "$tlc_jar" \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          printf '%s  %s\n' \
+            936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88 \
+            "$tlc_jar" | sha256sum --check
+          "$JAVA_HOME/bin/java" -version
+          test -s "$tlc_jar"
+          printf 'JAVA=%s\nTLA2TOOLS=%s\n' "$JAVA_HOME/bin/java" "$tlc_jar" >> "$GITHUB_ENV"
+
+      - name: Test the generated statechart CLI and regressions
+        run: >-
+          node --disable-warning=ExperimentalWarning --test --test-concurrency=2
+          skills/statechart/scripts/test/cli.test.ts
+          tests/runtime/statechart.test.mjs
+
+      - name: Test statechart against live TLC
+        shell: bash
+        run: |
+          test -x "$JAVA"
+          test -s "$TLA2TOOLS"
+          statechart_test_dir=$(mktemp -d "$RUNNER_TEMP/statechart-tests.XXXXXX")
+          cp -R skills/statechart/scripts "$statechart_test_dir/scripts"
+          cp tests/runtime/statechart-deps/bun.lock "$statechart_test_dir/scripts/bun.lock"
+          cd "$statechart_test_dir/scripts"
+          bun install --frozen-lockfile --ignore-scripts
+          node --disable-warning=ExperimentalWarning --test --test-concurrency=2 --test-reporter=spec \
+            test/config-fuzz.test.ts test/corpus.test.ts test/plain-tlc.test.ts test/differential.test.ts

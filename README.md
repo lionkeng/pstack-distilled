@@ -69,6 +69,21 @@ features such as delegation and conversation history. If the host cannot
 delegate or run background work, follow the playbook's inline or sequential
 instructions.
 
+### Helper compatibility
+
+`watch-pr` emits JSON schema version 2. Consumers must handle the
+`mergeability-unknown` wait and timeout reason and the `base-behind` merge
+gate. Unknown mergeability waits for another observation. A stale base
+blocks readiness. Owner approval remains a separate human decision.
+
+Saved multi-phase plans need a `pstack-plan-context` block. Record the
+product trunk separately from the installed instruction paths and their
+content hashes. Choose a recurring host task or bounded active-session
+polling. Validate the plan before arming a task. At execution startup, run
+the checker with `--startup` after creating the progress file and recording
+the recurring handle when needed. The checker verifies local state and
+the declared handle. Verify the host task itself through the host.
+
 ## Upstream sync
 
 Sync upstream and check the result:
@@ -126,11 +141,57 @@ Run the offline sync and validation tests with:
 python3 -m unittest discover -s tests -v
 ```
 
-The scheduled GitHub workflow runs those tests, then opens or updates the
-`automation/sync-pstack` pull request. It does not run scripts fetched from
-upstream. You merge the PR. The workflow writes only bot sync commits to that
-branch. If that branch's tip is not a prior bot sync commit, the workflow
-stops.
+### Verify generated behavior
+
+Keep downstream regressions in `tests/`. They read and execute generated
+files, including Markdown examples. After changing a conversion rule, run
+the Python suite above and confirm that a second generation is unchanged:
+
+```sh
+python3 scripts/sync_upstream.py --regenerate --check
+```
+
+Run the bundled and downstream runtime checks with Node 24.18.0 and
+Bun 1.4.2:
+
+```sh
+cd skills/poteto-mode/scripts
+bun install --frozen-lockfile
+bun test watch-pr check-plan.test.ts
+bun run typecheck
+cd ../../..
+bun test tests/runtime/watch-pr-readiness.test.ts tests/runtime/check-plan-portability.test.ts tests/runtime/type-examples.test.ts
+```
+
+For statechart integration checks, set `JAVA` to a Java executable and
+`TLA2TOOLS` to the TLC 1.7.4 jar pinned in `skills/statechart/scripts/run.ts`.
+CI uses Temurin 25 and verifies the jar's checksum before running these tests:
+
+```sh
+node --disable-warning=ExperimentalWarning --test --test-concurrency=2 skills/statechart/scripts/test/cli.test.ts tests/runtime/statechart.test.mjs
+```
+
+The [test workflow](.github/workflows/test.yml) also runs the corpus,
+plain-TLC, configuration fuzz, and differential suites. It copies the
+generated scripts into a temporary directory and installs their test
+dependencies with `tests/runtime/statechart-deps/bun.lock`. Keep that lock
+compatible with the generated statechart `package.json`. Required live
+tests must have Java and TLC available. A skipped live test is incomplete
+verification.
+
+When upstream changes a corrected passage, inspect the failed exact rule.
+Remove the rule only if upstream now supplies the correction. Otherwise,
+update its anchor and retain the behavioral regression. Do not hand-edit
+generated files or allow unmatched rules in a real sync.
+
+### Scheduled synchronization
+
+The scheduled GitHub workflow runs the Python suite, then opens or updates the
+`automation/sync-pstack` pull request. It dispatches the test workflow on
+the generated branch, including runtime checks of the generated helpers.
+The test jobs have read-only repository permissions. You merge the PR.
+The sync workflow writes only bot sync commits to that branch. If the
+branch's tip is not a prior bot sync commit, the workflow stops.
 
 For bot-created pull requests, enable **Settings > Actions > General > Allow
 GitHub Actions to create and approve pull requests**. The workflow grants
