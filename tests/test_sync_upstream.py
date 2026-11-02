@@ -335,6 +335,74 @@ Changed upstream.
         self.assertIn("portable and small", (self.downstream / "skills/beta/SKILL.md").read_text(encoding="utf-8"))
         self.assertEqual((modules / "README.md").read_text(encoding="utf-8"), "Run it in Cursor.\n")
         self.assertTrue((modules / ".bin/tool").is_symlink())
+        self.assertEqual((modules / ".bin/tool").readlink(), Path("../README.md"))
+        lock = json.loads((self.downstream / "upstream.lock.json").read_text(encoding="utf-8"))
+        self.assertEqual(lock["output"]["sha256"], sync_module._tree_digest(self.downstream / "skills"))
+        before = self._snapshot_downstream()
+        check = self._sync(check=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
+        self.assertEqual(self._snapshot_downstream(), before)
+
+    def test_changed_nested_ignore_rules_abort_without_mutation(self) -> None:
+        for change in ("removed", "narrowed"):
+            with self.subTest(change=change):
+                self.downstream = self.root / change
+                self.downstream.mkdir()
+                self._git(self.downstream, "init", "--quiet")
+                (self.downstream / ".gitignore").write_text(".pstack-sync-*/\n", encoding="utf-8")
+                manifest = self.downstream / ".claude-plugin/plugin.json"
+                manifest.parent.mkdir()
+                manifest.write_text('{"name": "pstack", "version": "0.1.0"}\n', encoding="utf-8")
+                self._write("pstack/LICENSE", UPSTREAM_LICENSE)
+                self._write("pstack/skills/alpha/scripts/.gitignore", "local-cache/\n")
+                self._commit_upstream("ignore local cache")
+                first = self._sync()
+                self.assertEqual(first.returncode, 0, first.stderr)
+                cache = self.downstream / "skills/alpha/scripts/local-cache"
+                cache.mkdir()
+                (cache / "data.txt").write_text("local cache\n", encoding="utf-8")
+                (cache / "kept.txt").write_text("still ignored\n", encoding="utf-8")
+                (cache / "link").symlink_to("data.txt")
+                before = self._snapshot_downstream()
+                lock = json.loads((self.downstream / "upstream.lock.json").read_text(encoding="utf-8"))
+
+                if change == "removed":
+                    (self.upstream / "pstack/skills/alpha/scripts/.gitignore").unlink()
+                else:
+                    self._write("pstack/skills/alpha/scripts/.gitignore", "local-cache/kept.txt\nlocal-cache/link\n")
+                self._write("pstack/LICENSE", UPSTREAM_LICENSE.replace("2026", "2027"))
+                self._commit_upstream(f"{change} local cache ignore rule")
+
+                for _ in range(2):
+                    failed = self._sync()
+                    self.assertEqual(failed.returncode, 2, failed.stdout)
+                    self.assertEqual(self._snapshot_downstream(), before)
+                    self.assertEqual((cache / "data.txt").read_text(encoding="utf-8"), "local cache\n")
+                    self.assertTrue((cache / "link").is_symlink())
+                    self.assertEqual((cache / "link").readlink(), Path("data.txt"))
+                    self.assertEqual(
+                        lock["output"]["sha256"], sync_module._tree_digest(self.downstream / "skills")
+                    )
+
+    def test_nested_ignore_rule_removal_without_local_files_succeeds(self) -> None:
+        self._git(self.downstream, "init", "--quiet")
+        (self.downstream / ".gitignore").write_text(".pstack-sync-*/\n", encoding="utf-8")
+        self._write("pstack/skills/alpha/scripts/.gitignore", "local-cache/\n")
+        self._commit_upstream("ignore local cache")
+        first = self._sync()
+        self.assertEqual(first.returncode, 0, first.stderr)
+
+        (self.upstream / "pstack/skills/alpha/scripts/.gitignore").unlink()
+        self._commit_upstream("remove local cache ignore rule")
+        second = self._sync()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertFalse((self.downstream / "skills/alpha/scripts/.gitignore").exists())
+        lock = json.loads((self.downstream / "upstream.lock.json").read_text(encoding="utf-8"))
+        self.assertEqual(lock["output"]["sha256"], sync_module._tree_digest(self.downstream / "skills"))
+        before = self._snapshot_downstream()
+        check = self._sync(check=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
+        self.assertEqual(self._snapshot_downstream(), before)
 
     def test_folded_yaml_description_is_imported(self) -> None:
         self._write(
