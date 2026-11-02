@@ -17,8 +17,8 @@
 1. **Frame.** State what variant is under test and what behavior counts as success. Write the rubric (3-6 concrete criteria) for the judge only. Hold it back from candidates.
 2. **Set up sanitized environments.** Per-candidate working dir with the variant in place. Plant any context an organic task would have: a project skeleton, the skills the candidate would naturally read.
 3. **Author one organic prompt.** What a user would type. No leakage of what's being measured.
-4. **Spawn N parallel candidates** on different models per the **arena** skill's Phase B. Each works in its own sanitized dir. Same prompt to each.
-5. **Spawn one blinded judge** on a different model family per the **arena** skill's Phase C. Judge sees outputs by sanitized label and the rubric, never a model name.
+4. **Spawn N parallel candidates** on confirmed different models when available, or independent seats on the parent model, per **arena** Phase B. Each works in its own sanitized dir. Same prompt to each. Use effort and speed controls only when the host exposes them, per the Subagents section.
+5. **Spawn one blinded judge** on a confirmed different family when available, or an independent seat on the parent model, per **arena** Phase C. Judge sees outputs by sanitized label and the rubric, never a model name.
 6. **Verify the chain from conversation records, not self-report.** Use only each candidate's conversation record when the host explicitly exposes it for the active workspace. Never probe private host storage or another workspace. Look at which files each candidate actually opened. Grade chain-following from the files it really read plus the shape of the code, never from the candidate's own claims.
 7. **Read every candidate output yourself** end to end. Compare to the judge's verdict. Disagreement means a model is biased or the rubric is ambiguous. Synthesize.
 

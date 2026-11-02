@@ -93,17 +93,6 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "use the Agent Skills authoring workflow directly; no mining is required.",
     ),
     (
-        "**PRs.** Run `/deslop` from `cursor-team-kit` over the diff before commit. Run `/no-comments` "
-        "before review. Write every PR title, PR description, and commit body with `/technical-writing`, "
-        "then apply `/unslop`. Apply every technical-writing layer except Diátaxis. Use one word for "
-        "each action, keep articles, and avoid `-ing` when a plain verb works.",
-        "**PRs.** Apply an available prose-cleanup workflow to agent-authored text before commit. Run the "
-        "**no-comments** skill before review. Write every PR title, PR description, and commit body with "
-        "**technical-writing**, then apply **unslop**. Apply every technical-writing layer except "
-        "Diátaxis. Use one word for each action, keep articles, and avoid `-ing` when a plain verb "
-        "works.",
-    ),
-    (
         "**Control skill.** Pick it by surface. Browser, Electron, and web UIs use `control-ui` from "
         "`cursor-team-kit`. CLIs and TUIs use `control-cli` from `cursor-team-kit`. Native mobile uses "
         "whatever simulator-driving skill the repo has. A PR that touches two surfaces gets lanes on "
@@ -152,27 +141,6 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         'Invoke when the user explicitly says "reflect".',
     ),
     (
-        "The parent finds its own transcript file before fanning out. The system prompt names the "
-        "active workspace's `agent-transcripts/` directory. Use that path. Do not glob across "
-        "`~/.cursor/projects/*/`. That crosses workspace boundaries and reads private chats from "
-        "unrelated projects.\n\n"
-        "```bash\n"
-        "ls -t <agent-transcripts>/*.jsonl <agent-transcripts>/*/*.jsonl "
-        "<agent-transcripts>/*/subagents/*.jsonl 2>/dev/null | head -10\n"
-        "```\n\n"
-        "Three transcript layouts: legacy flat (`<id>.jsonl`), current nested "
-        "(`<id>/<id>.jsonl`), and subagent (`<parent>/subagents/<child>.jsonl`).\n\n"
-        "For each candidate, read the first JSONL line and check that "
-        "`message.content[0].text` contains the conversation's opening user prompt. Take the "
-        "matching path. If no path resolves, write a tight digest of the session and pass that "
-        "instead.",
-        "Use only conversation history explicitly exposed by the host for the active workspace or "
-        "supplied by the user. Ask the host for recent records and use exposed metadata to identify "
-        "the active conversation. Do not assume a filesystem layout or JSON schema, and never probe "
-        "private host storage. If no history capability resolves the active record, write a tight "
-        "digest of the current conversation and pass that instead.",
-    ),
-    (
         "Shape: one or two questions with 4-6 options each, `allow_multiple: true` for category "
         "questions.",
         "Shape: one or two questions with 4-6 options each; allow multiple selections for category "
@@ -210,21 +178,6 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "exact product and path and approves after inspection.",
     ),
     (
-        "Use the tools available to you (Read, Grep, Glob) to explore.",
-        "Use the available file-reading, text-search, and file-discovery capabilities to explore.",
-    ),
-    (
-        "Use Glob to find directories and files, Grep to find key symbols, Read to understand the "
-        "actual implementation.",
-        "Discover relevant directories and files, search for key symbols, and read the actual "
-        "implementation.",
-    ),
-    (
-        "Tool calls (Shell, Grep, MCP, etc.) that match a skill's documented commands",
-        "Capability calls (shell commands, text search, connected-source lookups, and similar) "
-        "that match a skill's documented operations",
-    ),
-    (
         "Explore in subagents with `subagent_type: \"poteto-agent\"` and an explicit model per the "
         "Subagents section",
         "Explore in delegated workers instructed to read and apply poteto-mode first, with an "
@@ -239,36 +192,8 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "stated scope and the active host's authorization rules.",
     ),
     (
-        "**Use `subagent_type: \"poteto-agent\"` for any subagent you spawn inside a playbook step** "
-        "(code-writing delegates, ad-hoc helpers). `/poteto-mode` and `poteto-agent` route through "
-        "the same wrapper. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) "
-        "set their own `subagent_type` for diverse-model review. Respect what the skill prescribes, "
-        "don't override to `poteto-agent`.",
-        "**For a delegated worker inside a playbook, instruct it to read and apply poteto-mode first.** "
-        "If the host cannot preload a named worker profile, include that requirement in the brief. "
-        "Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) define their own "
-        "independent-review roles; preserve those roles.",
-    ),
-    (
         "agent mode (readonly strips MCP)",
         "the least privilege needed for its assigned reads or writes",
-    ),
-    (
-        ", agent mode (`readonly: false`). Reviewers need MCP access for context lookups (tickets, "
-        "chat threads, observability traces referenced in the transcript). Readonly strips MCPs.",
-        ". Grant each reviewer only the read access it needs for connected-source lookups "
-        "(tickets, chat threads, observability traces referenced in the transcript).",
-    ),
-    (
-        ", agent mode (`readonly: false`). The synthesizer's quality check includes spot-verifying "
-        "citations, which can require MCP access. Readonly strips MCPs.",
-        ". Grant only the read access needed to spot-verify citations.",
-    ),
-    (
-        "`readonly`: `false` (agent mode). The synthesizer's quality check spot-verifies citations, "
-        "which can require MCP access. Readonly/Ask mode strips MCPs and defeats that.",
-        "Requested access: read connected sources without mutating them. Grant only the read "
-        "capabilities needed to spot-verify citations.",
     ),
     (
         "Transcripts live at `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/<uuid>.jsonl`, "
@@ -302,13 +227,6 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
         "possible connector protocol rather than a required runtime.",
     ),
     (
-        "- `readonly`: `false` (agent mode). **Do not use readonly/Ask mode.** It strips MCP access, "
-        "which disables MCP-backed investigators entirely. Investigators still shouldn't write "
-        "anything.",
-        "- Requested access: read connected sources without mutating them. Use the least privilege "
-        "that still permits those reads, and do not infer authorization for writes.",
-    ),
-    (
         "Open a todolist with one entry per phase before starting.",
         "Maintain a plan or checklist with one entry per phase before starting.",
     ),
@@ -328,13 +246,18 @@ SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
 # earlier would corrupt names such as `agent-transcripts/` before the configured
 # host-path rewrite gets a chance to recognize them.
 POST_SEMANTIC_REWRITES: Sequence[Tuple[str, str]] = (
+    ("default `fast-code-model`", "default `auto`"),
+    ("default `judgment-model`", "default `auto`"),
+    (
+        "Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section",
+        "Use effort and speed controls only when the host exposes them, per the Subagents section",
+    ),
     ("chat UUID", "conversation identifier"),
     ("chat findings by UUID", "conversation findings by their available identifier"),
     ("transcript path or digest", "conversation-record path or digest"),
     ("full transcript", "full conversation record"),
     ("transcripts", "conversation records"),
     ("transcript", "conversation record"),
-    ("`Read` tool calls", "file reads"),
 )
 
 # Repair the phrases that the slash-command, create-skill, and deslop regexes
@@ -352,14 +275,6 @@ CLEANUP_REWRITES: Sequence[Tuple[str, str]] = (
     (
         "`control-ui` or `control-cli` from `optional companion tooling`",
         "the project's available UI or CLI verification harness",
-    ),
-    (
-        "`control-ui` or `control-cli` runtime verification (from `optional companion tooling`)",
-        "runtime verification with the project's available UI or CLI harness",
-    ),
-    (
-        "`control-cli` or `control-ui` from `optional companion tooling`",
-        "the project's available CLI or UI verification harness",
     ),
     (
         "the host's built-in babysit skill",
@@ -381,15 +296,6 @@ CLEANUP_REWRITES: Sequence[Tuple[str, str]] = (
         "A conversation record explicitly exposed by the host for the active workspace",
     ),
     (
-        "Reading local conversation records under `<host-conversation-history>/`",
-        "Reading conversation records explicitly exposed by the active host",
-    ),
-    ("the loop skill", "the host's recurring-run capability"),
-    ("parallel cloud workers", "parallel delegated workers when supported"),
-    ("the cloud concurrency limit", "the host's concurrency limit"),
-    ("Cloud agents cannot read the local store", "Remote workers may not access local-only state"),
-    ("the cloud agent's status", "the delegated worker's status"),
-    (
         "via the relevant control skill",
         "with the project's available verification harness",
     ),
@@ -403,32 +309,16 @@ CLEANUP_REWRITES: Sequence[Tuple[str, str]] = (
     ("the control skill", "the project's available verification harness"),
     ("<control skill path>", "<verification harness path>"),
     (
-        "and not another host PR-monitoring workflow, whose description matches the same words. ",
-        "Use this bundled playbook for those requests. ",
-    ),
-    (
         "This playbook replaces another host PR-monitoring workflow for these requests, so do "
         "not route there even though its description matches the same words.",
         "Use this bundled playbook for these requests rather than a similarly triggered host "
         "workflow.",
     ),
     (
-        "the **Babysit** playbook (`playbooks/babysit.md`), Use this bundled playbook for those "
-        "requests.",
-        "the bundled **Babysit** playbook (`playbooks/babysit.md`).",
-    ),
-    (
-        "Pull PR bodies and discussion via `gh` for any substantive commits:",
-        "When the repository is on GitHub and `gh` is available, pull PR bodies and discussion "
-        "for substantive commits. Otherwise use an available source-control connector and "
-        "record the PR-discussion gap:",
-    ),
-    (
         "Source control is always available through git and `gh`.",
         "Local source history is available through git in a checkout. PR discussion is "
         "available only when `gh` or another source-control connector is configured.",
     ),
-    ("Git history, `gh` for PRs", "Git history and an available PR connector"),
     (
         'Or "Not searched. This should not happen because git and `gh` are always expected."',
         'Or "Not searched. No checkout or source-control connector was available; PR discussion '
@@ -444,62 +334,6 @@ CLEANUP_REWRITES: Sequence[Tuple[str, str]] = (
         "For one specific prior conversation, use poteto-mode's `session-pickup` playbook when "
         "it is installed. Otherwise reconstruct decisions, open work, and live state inline "
         "from the exposed record or a user-supplied digest.",
-    ),
-    (
-        "Create `orchestrate/<project-slug>/` in the current agent's store (path in the system "
-        "prompt).",
-        "Set `ORCH_STORE` to a durable writable directory explicitly exposed by the host or "
-        "chosen in the active workspace. If it is workspace-local, keep it uncommitted. Never "
-        "guess a private host-state path. Create `<ORCH_STORE>/orchestrate/<project-slug>/`.",
-    ),
-    (
-        "Probe read-only: the ledger, `units.tsv`, `gh`, pushed branches, the delegated worker's "
-        "status in the host task dashboard.",
-        "Probe read-only using the ledger, `units.tsv`, pushed branches, `gh` when available, "
-        "and a worker-status capability when the host exposes one. Otherwise mark live worker "
-        "status unknown rather than guessing.",
-    ),
-    (
-        "the control-skill path",
-        "the project's available verification harness",
-    ),
-    (
-        "the full Task schema including `environment`",
-        "only the delegation and execution-environment options exposed by the host",
-    ),
-    (
-        "nesting works to depth 3, and a nested spawn has only the delegation and execution-"
-        "environment options exposed by the host",
-        "use nested delegation only when supported; otherwise have the coordinator spawn "
-        "workers directly or run them sequentially",
-    ),
-    (
-        "Restacks run in cloud. A local restack at this scale takes the laptop down.",
-        "Run restacks remotely when that capability is available; otherwise serialize them "
-        "locally and reduce concurrency to protect the machine.",
-    ),
-    (
-        "After a host restart: local agents are dead, cloud work is not.",
-        "After a host restart, local workers may be gone while remotely delegated work may "
-        "still be running; verify both through capabilities the host exposes.",
-    ),
-    (
-        "its spawn budget with the cloud default and the local exception list",
-        "its spawn budget, the remote-when-supported default, and the local exception list",
-    ),
-    (
-        "Verbatim paste is for cloud spawns and every resume",
-        "Verbatim paste is for remote spawns when supported and every resume",
-    ),
-    (
-        "Run a unit's verifier on a different model family from its worker.",
-        "When the host offers model choice, use a different model family for the verifier; "
-        "otherwise use an independent worker or apply the same verification rubric inline.",
-    ),
-    (
-        "A dedicated verifier agent (on a different model family than the worker)",
-        "A dedicated verifier agent (using a different model family when selectable, "
-        "otherwise an independent worker)",
     ),
 )
 
@@ -867,21 +701,16 @@ transcripts="${PSTACK_CONVERSATION_HISTORY_DIR:-}"
         raise PortError("worktree-audit.sh: expected upstream transcript block was not found")
     text = text.replace(old, new)
     old_scan = """\t\tf=$(rg -l -e "${wt}/" -e "${wt}\\\"" "$transcripts" 2>/dev/null \\
-\t\t\t| xargs stat -f '%m %N' 2>/dev/null | sort -rn | head -1)
+\t\t\t| xargs stat "${stat_fmt[@]}" 2>/dev/null | sort -rn | head -1)
 \t\tif [ -n "$f" ]; then last_ts=$(echo "$f" | awk '{print $1}')
-\t\t\tlast=$(date -r "$last_ts" '+%Y-%m-%d' 2>/dev/null); fi
+\t\t\tlast=$(fmt_day "$last_ts" 2>/dev/null); fi
 """
     new_scan = """\t\tf=$(rg -l -e "${wt}/" -e "${wt}\\\"" "$transcripts" 2>/dev/null \\
 \t\t\t| while IFS= read -r record; do
-\t\t\t\tif stat -f '%m %N' "$record" >/dev/null 2>&1; then
-\t\t\t\t\tstat -f '%m %N' "$record"
-\t\t\t\telse
-\t\t\t\t\tprintf '%s %s\\n' "$(stat -c '%Y' "$record")" "$record"
-\t\t\t\tfi
-\t\t\tdone | sort -rn | head -1)
+\t\t\t\tstat "${stat_fmt[@]}" "$record"
+\t\t\t  done | sort -rn | head -1)
 \t\tif [ -n "$f" ]; then last_ts=$(echo "$f" | awk '{print $1}')
-\t\t\tlast=$(date -r "$last_ts" '+%Y-%m-%d' 2>/dev/null \\
-\t\t\t\t|| date -d "@$last_ts" '+%Y-%m-%d' 2>/dev/null); fi
+\t\t\tlast=$(fmt_day "$last_ts" 2>/dev/null); fi
 """
     if old_scan not in text:
         raise PortError("worktree-audit.sh: expected upstream history scan was not found")
@@ -890,16 +719,17 @@ transcripts="${PSTACK_CONVERSATION_HISTORY_DIR:-}"
 
 def _safe_autopilot_merge(text: str) -> str:
     old = (
-        "CI must pass on that head before the merge, and the patch-id rule decides whether "
-        "the round's verdict still holds. "
-        "Once that head is green and its patch-id matches the verdict's under the patch-id rule "
-        "in `playbooks/shipping.md`, a later trunk move does not force another rebase. "
-        "Right before the merge, fetch trunk and check that `git merge-tree` of the head against "
-        "current trunk is clean. Also check that no path in "
-        "`git diff --name-only $(git merge-base HEAD origin/main) origin/main` is a path the PR "
-        "changes or a path that decides which CI runs for it, such as the repo's CI config paths. "
-        "If either check fails, rebase again, report the new head SHA, wait for CI to pass on it, "
-        "and repeat these checks."
+        "Right before merging, fetch trunk and ask whether its changes can affect the patch, "
+        "because rebasing for every trunk move never ends. Rebase and wait for CI when the code "
+        "that would land was never tested, as with a conflict, a file both sides changed, or a "
+        "change to which checks run for the PR. A lockfile both sides changed needs no rebase "
+        "when a frozen install passes on the merge result and the packages the PR changes "
+        "resolve there as on the head, because that install tests the lockfile that would land, "
+        "and a failing install means the rebase must repair it. When trunk changed a caller of "
+        "the patch or something the patch depends on, such as code it calls or a dependency "
+        "version, run the patch's checks on the merge result and merge on a pass. Otherwise "
+        "merge. If trunk would force a third rebase past merge prep, hold and report to the "
+        "root, which sequences the colliding work."
     )
     new = (
         "Fresh CI and the load-bearing runtime checks must pass on that head before the merge. "
@@ -1086,8 +916,10 @@ def port_skills(
 
         if skill_name == "no-comments":
             original = (
-                '1. Spawn the delegation capability with `worker role: "Comment Sicko"`. '
-                "Pass the scope. Do not restate its rules."
+                '1. Spawn the delegation capability with `worker role: "comment-sicko"`. '
+                "Pass the scope. Use effort and speed controls only when the host exposes them, "
+                "per the Subagents section of the **poteto-mode** skill. "
+                "Do not restate its rules."
             )
             portable = (
                 "1. Read [`references/comment-reviewer.md`](references/comment-reviewer.md). "

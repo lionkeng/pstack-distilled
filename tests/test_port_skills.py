@@ -201,7 +201,7 @@ Portable body.
             self.assertNotIn("optional companion tooling", plan)
             self.assertIn("Verification harness.", plan)
             self.assertIn("through its verification harness", plan)
-            self.assertIn("(default `fast-code-model`)", plan)
+            self.assertIn("(default `auto`)", plan)
             self.assertIn(
                 "arm the audit tick as an hourly run of the host's recurring-run capability with",
                 plan,

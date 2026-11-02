@@ -21,54 +21,52 @@ conversation and durable repository artifacts.
 
 Mine the current conversation for durable learnings, then route them into skill edits.
 
-## When to invoke
-
 Invoke when the user explicitly says "reflect". Skip when the conversation is trivial, off-topic, or already covered by an existing skill the parent followed correctly. One-offs are not learnings.
 
-## Process
+## 1. Locate the active conversation record
 
-### 1. Locate the active conversation record
+Use the current conversation. If the host explicitly exposes a record of this conversation, use only that record. Otherwise pass a short digest of the session to the reviewers.
 
-Use only conversation history explicitly exposed by the host for the active workspace or supplied by the user. Ask the host for recent records and use exposed metadata to identify the active conversation. Do not assume a filesystem layout or JSON schema, and never probe private host storage. If no history capability resolves the active record, write a tight digest of the current conversation and pass that instead.
+## 2. Spawn three reviewers in parallel
 
-### 2. Spawn three reviewers in parallel
+Run three independent reviewers when delegation is available. Give them access to the evidence tools needed to check the conversation record. Otherwise apply the three reviewer lenses in sequence.
 
-One message, three delegation calls, `worker role: general-purpose`, with `model` set as below. Grant each reviewer only the read access it needs for connected-source lookups (tickets, chat threads, observability traces referenced in the conversation record).
-
-Each reviewer and the synthesizer name a role line in `.pstack/models.md` and a default. Set `model` to that line's value, or to the default if `.pstack/models.md` or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the host delegation capability rejects a slug, use the default and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the worker runs on the current model.
+Each reviewer and the synthesizer reads its role line in `.pstack/models.md`. Without a configured model ID, omit `model` so the parent model runs the role. Pass an ID only after the host confirms it is available; if rejected, omit it and say so. Use effort and speed controls only when the host exposes them.
 
 | Lens | Role line | Default `model` | Prompt template |
 |---|---|---|---|
-| Judgment | `reflect judgment, divergent, synthesizer` | `judgment-model` | `references/judgment-reviewer.md` |
-| Tooling | `reflect tooling` | `fast-code-model` | `references/tooling-reviewer.md` |
-| Divergent | `reflect judgment, divergent, synthesizer` | `judgment-model` | `references/divergent-reviewer.md` |
+| Judgment | `reflect judgment, divergent, synthesizer` | `auto` | `references/judgment-reviewer.md` |
+| Tooling | `reflect tooling` | `auto` | `references/tooling-reviewer.md` |
+| Divergent | `reflect judgment, divergent, synthesizer` | `auto` | `references/divergent-reviewer.md` |
 
 Pass each template verbatim, substituting the conversation-record path or digest where marked. Reviewers return findings in the delegated worker's response.
 
-### 3. Synthesize
+## 3. Synthesize
 
-One delegation call, `worker role: general-purpose`, with `model` from the `reflect judgment, divergent, synthesizer` line (default `judgment-model`). Grant only the read access needed to spot-verify citations. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+One delegation call, `worker role: general-purpose`, `model` from the `reflect judgment, divergent, synthesizer` line (default `auto`), with access to the evidence tools needed to spot-check citations. Pass `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. It returns an Accepted / Rejected / Backlog list.
 
-### 4. Structural enforcement check
+## 4. Structural enforcement check
 
-Sanity-check the synthesizer's Accepted list. For any item that would be enforced more reliably by a lint rule, script, metadata flag, or runtime check, move it from Accepted to Backlog. See the **encode-lessons-in-structure** principle skill.
+Move any Accepted item that a lint rule, script, metadata flag, or runtime check would enforce more reliably to Backlog. See the **encode-lessons-in-structure** principle skill.
 
-### 5. Apply
+## 5. Apply
 
-Before applying any Accepted edit, present the synthesizer's full Accepted/Rejected/Backlog output to the user and wait for explicit approval. The user picks which subset to apply and may redirect routings. Skill changes affect every future agent in the org. Do not auto-apply.
+Present the synthesizer's full Accepted / Rejected / Backlog output and wait for explicit approval before applying any Accepted edit. The user picks the subset and may redirect routings. Skill changes affect every future agent in the org. Do not auto-apply.
 
-Backlog items file to whatever devex / backlog tracker your team uses automatically. Only the Accepted list waits for approval.
+File each Backlog item to your team's devex or backlog tracker without waiting. Only the Accepted list waits for approval.
 
-For each approved Accepted item, follow the Routing field exactly:
+Never edit a skill under `plugins/cache/`. Before approval, show its destination, `<project-skill-directory>/<skill>/` or `<user-skill-directory>/<skill>/`. After approval, copy the skill folder there and edit the copy. Never open a PR or push.
 
-- Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): parent does directly.
-- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): hand it to the Agent Skills authoring workflow and run its draft / test / iterate loop.
-- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): hand it to the Agent Skills authoring workflow and run its description-optimization loop.
+Follow each approved row's Routing exactly:
+
+- Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): the parent does it directly.
+- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): hand to Agent Skills authoring workflow and run its draft / test / iterate loop.
+- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): hand to Agent Skills authoring workflow and run its description-optimization loop.
 - `new skill via Agent Skills authoring workflow: <kebab-name>`: hand creation to Agent Skills authoring workflow. Do not invent the shape ad hoc.
 
-If your environment ships a SKILL.md validator, run it on every touched skill before declaring done. Skip this step if it doesn't.
+If your environment ships a SKILL.md validator, run it on every touched skill before declaring done.
 
-### 6. Summarize for the user
+## 6. Summarize for the user
 
 Short list, no preamble:
 

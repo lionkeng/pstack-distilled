@@ -78,7 +78,7 @@ disable-model-invocation: true
 Use the Task tool from Cursor with `subagent_type: generalPurpose` and
 `run_in_background: true`. Store local output under `.cursor/skills/alpha/`.
 Read only the active workspace's `agent-transcripts/` directory.
-Use the control-skill path. Restacks run in cloud. When coordinating workers, nesting works to depth 3, and a nested spawn has the full Task schema including `environment`.
+Use the available verification harness when checking the result.
 """,
         )
         self._write(
@@ -114,7 +114,7 @@ disable-model-invocation: true
 
 ## Steps
 
-1. Spawn `Task` with `subagent_type: "Comment Sicko"`. Pass the scope. Do not restate its rules.
+1. Spawn `Task` with `subagent_type: "comment-sicko"`. Pass the scope. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill. Do not restate its rules.
 """,
         )
         self._write(

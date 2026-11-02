@@ -19,8 +19,8 @@ Cursor setup and links into the docs site. `make-bot-ui` depends on Cursor
 Automations webhooks and cannot work on another host.
 
 Some playbooks name Bugbot, a GitHub review bot, as an example of an automated
-reviewer. The bundled `watch-pr` script still counts only Bugbot comments as
-review-bot threads.
+reviewer. The bundled `watch-pr` script treats every unresolved review thread
+as a blocker, regardless of its author.
 
 ## Install
 
