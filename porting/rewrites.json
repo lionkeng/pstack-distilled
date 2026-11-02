@@ -478,6 +478,14 @@
           {
             "from": "and those are in use even when their names never hit the sidebar.",
             "to": "and those are in use even when no session list shows their names."
+          },
+          {
+            "from": "4. Pause on irreversible loss. `wip:N` is N tracked uncommitted edits. Show the diff and get a decision first, since removing a clean worktree is recoverable from its branch but uncommitted work is gone. `scratch:N` is untracked throwaway, safe to drop, but name the files. Per Autonomy, clean and merged and not-in-use proceeds. `wip` and in-use pause.",
+            "to": "4. Preserve local data. The audit holds tracked edits, untracked and ignored files, locked worktrees, and failed queries. Inspect every held path. Give each local file or directory an explicit disposition before removal. Preserve unknown data and ask the user when its disposition is unclear. Only proven reproducible caches or scratch created by this run can be treated as disposable. A Git ignore rule or an untracked filename does not prove that. Clean, merged, and not-in-use worktrees can proceed under the existing authorization."
+          },
+          {
+            "from": "5. Prune the confirmed set. Per path, `git worktree remove --force <path>`. If the dir survives on ignored build artifacts, `rm -rf` it, then `git worktree prune`. Branch refs survive, so no commits are lost. Confirm with `df -h /` and re-list.",
+            "to": "5. Prune the confirmed set. Recheck usage and the complete local-file inventory immediately before removal. Use ordinary `git worktree remove <path>` for each confirmed path. If removal refuses, stop and inspect the path again. Do not escalate to forced removal or recursive deletion. Any separate cleanup of disposable files requires its own confirmed disposition and authorization. Branch refs survive. Confirm with `df -h /` and re-list."
           }
         ],
         "scripts/check-plan.test.ts": [
@@ -554,6 +562,40 @@
           {
             "from": "on a different model family per the **arena** skill's Phase C",
             "to": "on a confirmed different family when available, or an independent seat on the parent model, per **arena** Phase C"
+          }
+        ],
+        "scripts/worktree-audit.sh": [
+          {
+            "from": "# Main worktree is the first entry; everything else is a candidate.\nmain_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')",
+            "to": "audit_tmp=$(mktemp -d) || exit 1\ntrap 'rm -rf \"$audit_tmp\"' EXIT\nif ! git worktree list --porcelain -z > \"$audit_tmp/worktrees\"; then\n\techo \"error: could not list worktrees\" >&2\n\texit 1\nfi\nmain_wt=\"\"\nwhile IFS= read -r -d '' record; do\n\tcase \"$record\" in 'worktree '*) main_wt=${record#worktree }; break ;; esac\ndone < \"$audit_tmp/worktrees\"\n[ -n \"$main_wt\" ] || { echo \"error: worktree list has no main worktree\" >&2; exit 1; }\n\nhold_error() {\n\tprintf 'error: could not %s for %q\\n' \"$1\" \"$wt\" >&2\n\tprintf '?\\t?\\t?\\terror\\t?\\t?\\t?\\thold-error\\t%q\\n' \"$wt\"\n}"
+          },
+          {
+            "from": "prs=$(mktemp)",
+            "to": "prs=\"$audit_tmp/prs\""
+          },
+          {
+            "from": "git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt; do\n\t[ \"$wt\" = \"$main_wt\" ] && continue",
+            "to": "wt=\"\"; locked=no\nwhile IFS= read -r -d '' record; do\n\tcase \"$record\" in\n\t'worktree '*) wt=${record#worktree }; locked=no; continue ;;\n\tlocked|locked\\ *) locked=yes; continue ;;\n\t'') ;;\n\t*) continue ;;\n\tesac\n\t[ -z \"$wt\" ] || [ \"$wt\" = \"$main_wt\" ] && continue"
+          },
+          {
+            "from": "\thead=$(git -C \"$wt\" rev-parse HEAD 2>/dev/null)",
+            "to": "\tif ! head=$(git -C \"$wt\" rev-parse HEAD 2>/dev/null); then\n\t\thold_error \"read HEAD\"; continue\n\tfi"
+          },
+          {
+            "from": "\t# Distinguish real WIP (tracked edits) from disposable untracked scratch.\n\tporcelain=$(git -C \"$wt\" status --porcelain 2>/dev/null)\n\tif [ -z \"$porcelain\" ]; then dirty=clean\n\telif printf '%s\\n' \"$porcelain\" | grep -qv '^??'; then\n\t\tdirty=\"wip:$(printf '%s\\n' \"$porcelain\" | grep -cv '^??')\"\n\telse dirty=\"scratch:$(printf '%s\\n' \"$porcelain\" | grep -c '^??')\"; fi",
+            "to": "\tif ! git -C \"$wt\" status --porcelain -z --untracked-files=no > \"$audit_tmp/tracked\" 2>/dev/null; then\n\t\thold_error \"read tracked status\"; continue\n\tfi\n\tif ! git -C \"$wt\" ls-files --others --exclude-standard -z > \"$audit_tmp/untracked\" 2>/dev/null; then\n\t\thold_error \"list untracked files\"; continue\n\tfi\n\tif ! git -C \"$wt\" ls-files --others --ignored --exclude-standard -z > \"$audit_tmp/ignored\" 2>/dev/null; then\n\t\thold_error \"list ignored files\"; continue\n\tfi\n\tif [ -s \"$audit_tmp/tracked\" ]; then dirty=wip\n\telif [ -s \"$audit_tmp/untracked\" ] || [ -s \"$audit_tmp/ignored\" ]; then dirty=local-files\n\telse dirty=clean; fi"
+          },
+          {
+            "from": "\tcase \"$dirty\" in wip:*) bucket=hold-wip ;; *)",
+            "to": "\tcase \"$dirty:$locked\" in\n\t*:yes) bucket=hold-locked ;;\n\twip:*) bucket=hold-wip ;;\n\tlocal-files:*) bucket=hold-local-files ;;\n\t*)"
+          },
+          {
+            "from": "\tprintf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\" \\\n\t\t\"$size\" \"$age\" \"$merged\" \"$dirty\" \"$remote\" \"$pr\" \"$last\" \"$bucket\" \"$wt\"\ndone | sort -t$'\\t' -k1,1 -rh\n\nrm -f \"$prs\"",
+            "to": "\tprintf \"%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%q\\n\" \\\n\t\t\"$size\" \"$age\" \"$merged\" \"$dirty\" \"$remote\" \"$pr\" \"$last\" \"$bucket\" \"$wt\"\ndone < \"$audit_tmp/worktrees\" | sort -t$'\\t' -k1,1 -rh"
+          },
+          {
+            "from": "size=$(du -sh \"$wt\" 2>/dev/null | awk '{print $1}')",
+            "to": "size=$(du -sh \"$wt\" 2>/dev/null | awk 'NR == 1 {print $1; exit}')"
           }
         ]
       },
