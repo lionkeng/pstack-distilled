@@ -22,12 +22,14 @@ function run(
     java = path.join(here, "java.ts"),
     command = [process.execPath, path.join(here, "../statechart.ts")],
     env = {},
+    cwd,
   }: {
     args?: string[];
     view?: string;
     java?: string;
     command?: string[];
     env?: NodeJS.ProcessEnv;
+    cwd?: string;
   } = {},
 ) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "statechart-cli-"));
@@ -46,6 +48,7 @@ function run(
       ...args,
     ],
     {
+      cwd,
       encoding: "utf8",
       env: {
         ...process.env,
@@ -101,6 +104,43 @@ for (const name of fs.readdirSync(corpus)) {
   });
 }
 
+for (const java of ["./java", "java"]) {
+  test(`relative TLC paths work with JAVA=${java}`, () => {
+    const dir = path.join(corpus, "Login");
+    const tools = fs.mkdtempSync(path.join(os.tmpdir(), "statechart tools-"));
+    try {
+      fs.writeFileSync(path.join(tools, "tlc tools.jar"), "test jar");
+      fs.writeFileSync(
+        path.join(tools, "java"),
+        [
+          "#!/usr/bin/env node",
+          'import assert from "node:assert/strict";',
+          'import fs from "node:fs";',
+          'const jar = process.argv[process.argv.indexOf("-cp") + 1];',
+          'assert.equal(fs.readFileSync(jar, "utf8"), "test jar");',
+          `await import(${JSON.stringify(pathToFileURL(path.join(here, "java.ts")).href)});`,
+          "",
+        ].join("\n"),
+        { mode: 0o755 },
+      );
+      const r = run(dir, {
+        cwd: tools,
+        java,
+        env: {
+          TLA2TOOLS: "tlc tools.jar",
+          PATH: `${tools}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+      assert.equal(r.error, undefined);
+      assert.equal(r.status, 0, r.stderr);
+      assert.equal(r.report, read(path.join(dir, "report.md")));
+      assert.equal(read(path.join(r.out, "chart.mmd")), read(path.join(dir, "chart.mmd")));
+    } finally {
+      fs.rmSync(tools, { recursive: true, force: true });
+    }
+  });
+}
+
 const launcher = path.join(here, "../statechart");
 
 const launcherTools = () => {
@@ -117,7 +157,10 @@ const linkedLauncher = () => {
   const [first, second] = [path.join(links, "a"), path.join(links, "b")];
   fs.mkdirSync(first);
   fs.mkdirSync(second);
-  fs.symlinkSync(path.relative(second, launcher), path.join(second, "statechart"));
+  fs.symlinkSync(
+    path.relative(fs.realpathSync(second), fs.realpathSync(launcher)),
+    path.join(second, "statechart"),
+  );
   fs.symlinkSync(path.join(second, "statechart"), path.join(first, "statechart"));
   return path.join(first, "statechart");
 };
@@ -132,6 +175,7 @@ for (const [how, command] of [
       command: [command()],
       env: { PATH: `${path.dirname(process.execPath)}${path.delimiter}${launcherTools()}` },
     });
+    assert.equal(r.error, undefined);
     assert.equal(r.stderr, "");
     assert.equal(r.status, 1);
     assert.equal(read(path.join(r.out, "chart.mmd")), read(path.join(dir, "chart.mmd")));

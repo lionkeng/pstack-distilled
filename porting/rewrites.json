@@ -436,6 +436,18 @@
           {
             "from": "and a different model after a tool error",
             "to": "and a different confirmed model after a tool error when one is available"
+          },
+          {
+            "from": "Run it with your own tools. Spawn workers with the delegation capability. Keep the program's state in the Project tracker (`notes.md`) and the Project store. Watch each PR with PR and CI event subscriptions when your harness has them. Call no scripts, run no polling loops, and never relay messages or status between agents.",
+            "to": "Run it with your own tools. Spawn workers with the delegation capability. Keep the program's state in durable writable storage explicitly exposed by the host, or in an uncommitted workspace directory. Record that path, maintain `notes.md` there, and give each shared file one writer. Use a Project tracker or Project store only when the host exposes one. Watch PRs through event subscriptions when available. Otherwise use the bundled PR watcher or poll PR and CI state in the active session at bounded intervals. Record the last observed head and check state so work can resume after a restart. Never probe private host storage."
+          },
+          {
+            "from": "Run workers on a new remote VM (`execution environment: remote when supported`) unless the work needs this machine:",
+            "to": "Use a remote worker when supported; otherwise use a local worker. Keep work on this machine when it needs local resources:"
+          },
+          {
+            "from": "- **Fork when new work needs a worker's built state,** such as its checkout, uncommitted changes, or a running process. Message a worker only for a follow-up on the same work. Never message one to check on it, because a message restarts an idle agent.",
+            "to": "- **Preserve needed worker state.** Fork a worker environment only when the host supports it. Otherwise continue with the existing worker when checkout changes or running processes cannot be transferred safely, or give a fresh worker committed artifacts and a complete handoff. Use host status APIs or PR activity to check progress; message a worker for a task follow-up, not as a liveness probe."
           }
         ],
         "playbooks/opening-a-pr.md": [
@@ -452,6 +464,10 @@
           {
             "from": "with the project's available verification harness (such as the project's available UI or CLI verification harness)",
             "to": "with the project's available UI or CLI verification harness"
+          },
+          {
+            "from": "4. **Land bottom-up, one PR at a time.** ",
+            "to": "4. **Land bottom-up, one PR at a time.** Before merging or arming auto-merge, fetch trunk and record its exact SHA. If the bottom PR's head does not include that SHA, rebase it onto that tip and push. Retarget the bottom PR to trunk. Require CI and the load-bearing runtime checks on the resulting head before merging. Repeat this preparation after each trunk move. Matching patch IDs can preserve code-review verdicts, but cannot preserve CI or runtime results across a trunk change. Require the forge's up-to-date-branch protection or a merge queue that tests the current integrated tree; if neither is available, stop at merge-ready. "
           }
         ],
         "playbooks/worktree-cleanup.md": [
@@ -778,6 +794,46 @@
           "to": "Prefer a reviewer from a different family when the host confirms that family; otherwise use an independent reviewer on an available model."
         }
       ]
+    },
+    "statechart": {
+      "files": {
+        "scripts/run.ts": [
+          {
+            "from": "  const { TLA2TOOLS, JAVA } = process.env;\n  if (TLA2TOOLS) return { jar: TLA2TOOLS, java: JAVA || \"java\" };",
+            "to": "  const { TLA2TOOLS, JAVA } = process.env;\n  const java = JAVA && (JAVA.includes(\"/\") || JAVA.includes(path.sep)) ? path.resolve(JAVA) : JAVA;\n  if (TLA2TOOLS) return { jar: path.resolve(TLA2TOOLS), java: java || \"java\" };"
+          },
+          {
+            "from": "    java: JAVA || found[1].stdout.trim(),",
+            "to": "    java: java || found[1].stdout.trim(),"
+          }
+        ],
+        "scripts/test/cli.test.ts": [
+          {
+            "from": "    command = [process.execPath, path.join(here, \"../statechart.ts\")],\n    env = {},",
+            "to": "    command = [process.execPath, path.join(here, \"../statechart.ts\")],\n    env = {},\n    cwd,"
+          },
+          {
+            "from": "    command?: string[];\n    env?: NodeJS.ProcessEnv;",
+            "to": "    command?: string[];\n    env?: NodeJS.ProcessEnv;\n    cwd?: string;"
+          },
+          {
+            "from": "      out,\n      ...args,\n    ],\n    {\n      encoding: \"utf8\",",
+            "to": "      out,\n      ...args,\n    ],\n    {\n      cwd,\n      encoding: \"utf8\","
+          },
+          {
+            "from": "const launcher = path.join(here, \"../statechart\");",
+            "to": "for (const java of [\"./java\", \"java\"]) {\n  test(`relative TLC paths work with JAVA=${java}`, () => {\n    const dir = path.join(corpus, \"Login\");\n    const tools = fs.mkdtempSync(path.join(os.tmpdir(), \"statechart tools-\"));\n    try {\n      fs.writeFileSync(path.join(tools, \"tlc tools.jar\"), \"test jar\");\n      fs.writeFileSync(\n        path.join(tools, \"java\"),\n        [\n          \"#!/usr/bin/env node\",\n          'import assert from \"node:assert/strict\";',\n          'import fs from \"node:fs\";',\n          'const jar = process.argv[process.argv.indexOf(\"-cp\") + 1];',\n          'assert.equal(fs.readFileSync(jar, \"utf8\"), \"test jar\");',\n          `await import(${JSON.stringify(pathToFileURL(path.join(here, \"java.ts\")).href)});`,\n          \"\",\n        ].join(\"\\n\"),\n        { mode: 0o755 },\n      );\n      const r = run(dir, {\n        cwd: tools,\n        java,\n        env: {\n          TLA2TOOLS: \"tlc tools.jar\",\n          PATH: `${tools}${path.delimiter}${process.env.PATH ?? \"\"}`,\n        },\n      });\n      assert.equal(r.error, undefined);\n      assert.equal(r.status, 0, r.stderr);\n      assert.equal(r.report, read(path.join(dir, \"report.md\")));\n      assert.equal(read(path.join(r.out, \"chart.mmd\")), read(path.join(dir, \"chart.mmd\")));\n    } finally {\n      fs.rmSync(tools, { recursive: true, force: true });\n    }\n  });\n}\n\nconst launcher = path.join(here, \"../statechart\");"
+          },
+          {
+            "from": "  fs.symlinkSync(path.relative(second, launcher), path.join(second, \"statechart\"));",
+            "to": "  fs.symlinkSync(\n    path.relative(fs.realpathSync(second), fs.realpathSync(launcher)),\n    path.join(second, \"statechart\"),\n  );"
+          },
+          {
+            "from": "    assert.equal(r.stderr, \"\");\n    assert.equal(r.status, 1);\n    assert.equal(read(path.join(r.out, \"chart.mmd\")), read(path.join(dir, \"chart.mmd\")));",
+            "to": "    assert.equal(r.error, undefined);\n    assert.equal(r.stderr, \"\");\n    assert.equal(r.status, 1);\n    assert.equal(read(path.join(r.out, \"chart.mmd\")), read(path.join(dir, \"chart.mmd\")));"
+          }
+        ]
+      }
     },
     "swarm": {
       "description": "Run parallel workers on independent tasks and synthesize their results.",
