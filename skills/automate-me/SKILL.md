@@ -41,7 +41,7 @@ Update mode changes the rest of the flow:
 
 Locate the active workspace's conversation records before fanning out. Use only a conversation-history source explicitly exposed for the active workspace. Never probe private storage or another workspace's history.
 
-Survey recent agent conversations within that scope for recurring patterns. Run multiple parallel subagents across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Each slice mining subagent reads conversation records from the workspace-scoped path the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
+Survey recent agent conversations within that scope for recurring patterns. Run multiple parallel subagents across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Use effort and speed controls only when the host exposes them, per the Subagents section of the **poteto-mode** skill. Each slice mining subagent reads conversation records from the workspace-scoped path the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
 
 - Response preferences (length, tone, format, "dumb it down" corrections)
 - Delegation habits (subagents, models, specialized workflows, parallelism)

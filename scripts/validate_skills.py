@@ -43,7 +43,7 @@ PORTABILITY_PATTERNS: Sequence[Tuple[str, re.Pattern[str]]] = (
     ("Cursor readonly field", re.compile(r"`readonly(?:`:|: )")),
     ("Cursor Ask mode", re.compile(r"\bAsk mode\b")),
     ("unshipped poteto-agent worker", re.compile(r"\bpoteto-agent\b")),
-    ("Cursor loop command", re.compile(r"/loop\b")),
+    ("Cursor loop command", re.compile(r"/loop\b(?!-)")),
     ("Cursor companion plugin", re.compile(r"\bcursor-team-kit\b")),
     ("unbundled companion tooling", re.compile(r"\boptional companion tooling\b")),
     ("host-specific skill-authoring primitive", re.compile(r"\bcreate-skill\b")),

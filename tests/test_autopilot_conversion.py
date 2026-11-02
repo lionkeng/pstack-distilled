@@ -13,16 +13,17 @@ import port_skills as port_module  # noqa: E402
 
 class AutopilotConversionTest(unittest.TestCase):
     UPSTREAM_MERGE_EXCEPTION = (
-        "CI must pass on that head before the merge, and the patch-id rule decides whether "
-        "the round's verdict still holds. "
-        "Once that head is green and its patch-id matches the verdict's under the patch-id rule "
-        "in `playbooks/shipping.md`, a later trunk move does not force another rebase. "
-        "Right before the merge, fetch trunk and check that `git merge-tree` of the head against "
-        "current trunk is clean. Also check that no path in "
-        "`git diff --name-only $(git merge-base HEAD origin/main) origin/main` is a path the PR "
-        "changes or a path that decides which CI runs for it, such as the repo's CI config paths. "
-        "If either check fails, rebase again, report the new head SHA, wait for CI to pass on it, "
-        "and repeat these checks."
+        "Right before merging, fetch trunk and ask whether its changes can affect the patch, "
+        "because rebasing for every trunk move never ends. Rebase and wait for CI when the code "
+        "that would land was never tested, as with a conflict, a file both sides changed, or a "
+        "change to which checks run for the PR. A lockfile both sides changed needs no rebase "
+        "when a frozen install passes on the merge result and the packages the PR changes "
+        "resolve there as on the head, because that install tests the lockfile that would land, "
+        "and a failing install means the rebase must repair it. When trunk changed a caller of "
+        "the patch or something the patch depends on, such as code it calls or a dependency "
+        "version, run the patch's checks on the merge result and merge on a pass. Otherwise "
+        "merge. If trunk would force a third rebase past merge prep, hold and report to the "
+        "root, which sequences the colliding work."
     )
 
     def _port_playbook(self, root: Path, text: str, skill_name: str = "poteto-mode") -> str:

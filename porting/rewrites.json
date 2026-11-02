@@ -22,10 +22,6 @@
       "to": "using the host's recurring-run capability"
     },
     {
-      "from": "`/loop` works in local and cloud roots.",
-      "to": "Use it in local and remote roots when the host supports both."
-    },
-    {
       "from": "`/loop 1h`",
       "to": "an hourly run of the host's recurring-run capability"
     },
@@ -78,10 +74,6 @@
       "to": "remote delegated worker"
     },
     {
-      "from": "Cursor dashboard",
-      "to": "host task dashboard"
-    },
-    {
       "from": "Cursor restart",
       "to": "host restart"
     },
@@ -118,10 +110,6 @@
       "to": "delegated worker's response"
     },
     {
-      "from": "`Task` prompts",
-      "to": "delegated-worker prompts"
-    },
-    {
       "from": "`Task`",
       "to": "the delegation capability"
     },
@@ -144,10 +132,6 @@
     {
       "from": "environment: \"local\"",
       "to": "execution environment: local"
-    },
-    {
-      "from": "- `readonly`: `true`",
-      "to": "- Requested access: read-only"
     },
     {
       "from": "claude-opus-5-5-xhigh",
@@ -194,10 +178,6 @@
       "to": "Review-bot triage done."
     },
     {
-      "from": "skeptical Bugbot triage",
-      "to": "skeptical review-bot triage"
-    },
-    {
       "from": "**Bugbot is triaged skeptically, always.**",
       "to": "**Review bots such as Bugbot are triaged skeptically, always.**"
     },
@@ -214,10 +194,6 @@
       "to": "<the PR's change as a verb phrase>"
     },
     {
-      "from": "Transcript mtime is not liveness.",
-      "to": "A conversation record's modification time is not liveness."
-    },
-    {
       "from": "four todo items",
       "to": "four checklist items"
     },
@@ -228,10 +204,6 @@
     {
       "from": "in dynamic mode",
       "to": "on a self-paced cadence"
-    },
-    {
-      "from": "and store reports",
-      "to": "and reports in durable storage"
     },
     {
       "from": "pass `cloud_base_branch`.",
@@ -272,14 +244,36 @@
   ],
   "skills": {
     "architect": {
-      "description": "Design types, interfaces, and module structure before implementation."
+      "description": "Design types, interfaces, and module structure before implementation.",
+      "body": [
+        {
+          "from": "Take the runners from the `architect runners` line in `.pstack/models.md`, in place of the `arena runners` line. If `.pstack/models.md` or that line is missing, use `judgment-model` and `fast-code-model`. Alias and rejected entries follow the runner rules in the **arena** skill's Phase A.",
+          "to": "Take the runners from the `architect runners` line in `.pstack/models.md`, in place of `arena runners`. Without a configured line, use two `auto` seats. Follow the availability and fallback rules in **arena** Phase A."
+        }
+      ],
+      "files": {
+        "references/runner-prompt.md": [
+          {
+            "from": "each on a different model",
+            "to": "each independent and on different models when the host confirms them available"
+          }
+        ]
+      }
     },
     "arena": {
       "description": "Build independent candidates for the same task and combine their strongest parts.",
       "body": [
         {
-          "from": "If the host delegation capability rejects a configured entry, run that seat on its family's default and say so. Families go by prefix: `claude-*` and `grok-*`. With no family match, use `judgment-model`. If it rejects a default, use the closest valid slug of the same family from its error message.",
-          "to": "If the host delegation capability rejects a configured entry, run that seat on `judgment-model` and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the seat runs on the current model."
+          "from": "If the host delegation capability rejects a configured entry, run that seat on its family's default and say so. Families go by prefix: `claude-*`, and `grok-*` with `cursor-grok-*` and `composer-*`. A refused `composer-*` entry runs on `fast-code-model`. If the family has no default, or the host delegation capability rejects that default, use the closest valid slug of the same family from its error message, or drop the seat and say so when there is none.",
+          "to": "If the host delegation capability rejects a configured entry, choose an available model that fits the seat's role and say so. If none fits, omit `model` so the seat runs on the parent model."
+        },
+        {
+          "from": "3. Pick the runners. Use the `arena runners` line in `.pstack/models.md`. If `.pstack/models.md` or that line is missing, default to one each on `judgment-model` and `fast-code-model`. An `auto` or `inherit-parent` entry in this line means the parent model, so omit `model` for it. If the host delegation capability rejects a configured entry, choose an available model that fits the seat's role and say so. If none fits, omit `model` so the seat runs on the parent model. If dropped seats leave fewer than two runners, add runners until there are two, or one when the line has one entry. Run each added runner on a remaining runner's model, or omit `model` so it runs on the parent model when none remain, and say so. Spawn more runners when the arena covers multiple design directions. Use the same model N times when the work is generation-bound rather than judgment-sensitive. Use effort and speed controls only when the host exposes them, per the Subagents section of the **poteto-mode** skill.",
+          "to": "3. Pick the runners from the `arena runners` line in `.pstack/models.md`; without a configured line, use two `auto` seats. `auto` and `inherit-parent` mean omit `model` and use the parent model. Pass a configured model ID only after the host confirms it is available. If it is unavailable or rejected, omit `model` for that seat and say so. Keep the requested number of candidates, even when they share a model. Pick effort and speed only through controls the host exposes. Add runners for distinct design directions; use the same model for generation-bound work when useful."
+        },
+        {
+          "from": "After all Phase B candidates complete, choose one model from the `arena cross-judge pool` line in `.pstack/models.md`. If `.pstack/models.md` or that line is missing, choose from `judgment-model` and `fast-code-model`. Spawn one read-only judge subagent. The judge is never from the parent's family, as Phase A step 3 defines families. Try only the entries from another family, in pool order. An `auto` or `inherit-parent` entry is the parent model, so it never judges. With the default pool, a Claude parent gets `fast-code-model`. A parent from any other family gets `judgment-model` first. If the host delegation capability rejects an entry, use a valid slug of the same model at the closest level or speed from the error message, or move to the next entry when there is none. If no entry from another family runs, try the default pool's entries from another family the same way. If none of those runs, skip the judge, pick the base alone in Phase D, and say so. If you do not know the parent's model, try the pool's real slugs in pool order and say that the family check did not run. The judge sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.",
+          "to": "After all Phase B candidates complete, choose one independent judge from the `arena cross-judge pool` line in `.pstack/models.md`; without a configured pool, use `auto`. Pass `model` only for a confirmed available ID. Prefer a different model family when the host explicitly provides family information. Do not infer family from an ID or a role label. If family diversity cannot be confirmed, use an independent judge on an available model or the parent model and report that limit. When delegation is unavailable, apply the judge rubric inline. The judge sees the rubric and candidates by path label, scores each criterion, and recommends a base with rationale. Start judging after candidates finish writing."
         }
       ]
     },
@@ -347,19 +341,21 @@
       "explicit": false,
       "body": [
         {
-          "from": "Spawn one delegated worker that explores and explains in one pass:",
-          "to": "Explore and explain in the current thread for a simple question. Read `references/explainer-prompt.md` if its communication guidance is needed, then proceed to Step 4. Delegation is optional when it adds useful independent work; the following configuration applies only when delegating:"
+          "from": "Spawn one explainer that explores and explains in one pass, built from `references/explainer-prompt.md` without the explorer-findings section.",
+          "to": "Explore and explain in the current thread. Read `references/explainer-prompt.md` for communication guidance if needed."
+        },
+        {
+          "from": "`readonly: true`",
+          "to": "read-only access"
+        },
+        {
+          "from": "Every spawn is a delegated worker with `worker role: general-purpose` and read-only access. Explorers use the `how explorer` line in `.pstack/models.md` (default `auto`), and every explainer uses the `how explainer` line (default `auto`). Set `model` to that line's value, or to the default if `.pstack/models.md` or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the host delegation capability rejects a slug, use the default and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the worker runs on the current model. Use effort and speed controls only when the host exposes them, per the Subagents section of the **poteto-mode** skill.",
+          "to": "Use read-only delegated workers when available. Explorers read `how explorer` and explainers read `how explainer` in `.pstack/models.md`. Without a configured model ID, omit `model` so the parent model runs the role. Pass an ID only after the host confirms it is available; if rejected, omit it and say so. Use effort and speed controls only when the host exposes them."
         }
       ]
     },
     "interrogate": {
-      "description": "Challenge code or design with independent adversarial reviewers.",
-      "body": [
-        {
-          "from": "run that reviewer on the table default of its family and say so. Families go by prefix: `claude-*` and `grok-*`. With no family match, use Reviewer A's default. If it rejects a table default, check the valid slugs in the host delegation capability's error message, pick the closest equivalent (prefer the same family and reasoning tier), spawn with it, and open a separate PR to update the default table.",
-          "to": "run that reviewer on Reviewer A's default and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the reviewer runs on the current model."
-        }
-      ]
+      "description": "Challenge code or design with independent adversarial reviewers."
     },
     "maintain-verification-skill": {
       "description": "Audit a project verification skill against current source and observable behavior.",
@@ -394,12 +390,20 @@
           {
             "from": "handles Bugbot or review-automation comments.",
             "to": "handles comments from Bugbot or another automated reviewer. The patterns below come from Bugbot history and apply to any automated reviewer."
+          },
+          {
+            "from": "Classify each Bugbot thread before acting:",
+            "to": "Classify each automated-review thread before acting:"
           }
         ],
         "playbooks/autopilot-full.md": [
           {
-            "from": "with the project's available verification harness, such as the project's available CLI or UI verification harness, or a named driver where none exists",
-            "to": "with the project's available CLI or UI verification harness, or a named driver where none exists"
+            "from": "through its verification harness (such as the project's available UI or CLI verification harness) or a named driver",
+            "to": "through the project's available UI or CLI verification harness, or a named driver"
+          },
+          {
+            "from": "the root agent's store (path in the system prompt)",
+            "to": "a durable location available to the root agent"
           }
         ],
         "playbooks/multi-phase-plan.md": [
@@ -414,6 +418,24 @@
           {
             "from": "only through the project's available verification harness's commands.",
             "to": "only through the verification harness commands."
+          },
+          {
+            "from": "with an explicit model per the Subagents section",
+            "to": "with a confirmed configured model when available, or the parent model per the Subagents section"
+          }
+        ],
+        "playbooks/orchestrate.md": [
+          {
+            "from": "a `control-ui` or `control-cli` runtime check (from available verification tooling)",
+            "to": "a live UI or CLI check that requires tools available only on this machine"
+          },
+          {
+            "from": "on a different model family. The owner merges only on that verifier's pass at the current head.",
+            "to": "on a confirmed different model when available, or otherwise as an independent reviewer on the parent model. The owner merges only on that verifier's pass at the current head."
+          },
+          {
+            "from": "and a different model after a tool error",
+            "to": "and a different confirmed model after a tool error when one is available"
           }
         ],
         "playbooks/opening-a-pr.md": [
@@ -422,8 +444,8 @@
             "to": "so make every creation call through it open the PR as ready."
           },
           {
-            "from": "runs `interrogate`, prose-cleanup workflow, and `no-comments`",
-            "to": "runs `interrogate`, an available prose-cleanup workflow, and `no-comments`"
+            "from": "Run prose-cleanup workflow from available verification tooling over the diff before commit",
+            "to": "Apply an available prose-cleanup workflow over the diff before commit"
           }
         ],
         "playbooks/shipping.md": [
@@ -442,13 +464,109 @@
             "to": "and those are in use even when no session list shows their names."
           }
         ],
-        "scripts/orch/orch.test.ts": [
+        "scripts/check-plan.test.ts": [
           {
-            "from": "verifier: \"opus\",",
-            "to": "verifier: \"independent-verifier\","
+            "from": "/loop 1h status message",
+            "to": "hourly run of the host's recurring-run capability status message"
+          }
+        ],
+        "scripts/watch-pr/types.ts": [
+          {
+            "from": "  readonly isBugbot: boolean;\n  readonly bugbotReviewPasses: number;\n",
+            "to": ""
+          },
+          {
+            "from": "      readonly reviewAutomationRunning: boolean;\n",
+            "to": ""
+          }
+        ],
+        "scripts/watch-pr/github.ts": [
+          {
+            "from": "function isBugbot(comment: T.ReviewComment | null): boolean {\n  if (comment === null) return false;\n  const author = (comment.authorLogin ?? \"\").toLowerCase();\n  const body = comment.body.toLowerCase();\n  return (\n    author.includes(\"bugbot\") ||\n    (author === \"cursor\" &&\n      [\n        \"bugbot\",\n        \"cursor_automation_id\",\n        \"agentic security review\",\n        \"description start\",\n        \"severity\",\n      ].some((token) => body.includes(token)))\n  );\n}\nfunction passKey(comment: T.ReviewComment | null): string | null {\n  if (comment === null) return null;\n  for (const pattern of [\n    /RUN_ID:\\s*([a-zA-Z0-9_.:-]+)/,\n    /CURSOR_AUTOMATION_ID:\\s*([a-zA-Z0-9_.:-]+)/,\n  ]) {\n    const match = pattern.exec(comment.body);\n    if (match?.[1]) return match[1];\n  }\n  return null;\n}\n",
+            "to": ""
+          },
+          {
+            "from": "export function buildReviewThreads(\n  threads: readonly T.RawReviewThread[]\n): readonly T.ReviewThread[] {\n  const keys = new Set<string>();\n  let keyless = false;\n  for (const thread of threads) {\n    if (!isBugbot(thread.firstComment)) continue;\n    const key = passKey(thread.firstComment);\n    if (key === null) keyless = true;\n    else keys.add(key);\n  }\n  const passes = keys.size > 0 ? keys.size : keyless ? 1 : 0;\n  return threads\n    .filter((thread) => !thread.resolved)\n    .map(({ id, firstComment }) => ({\n      id,\n      firstComment,\n      isBugbot: isBugbot(firstComment),\n      bugbotReviewPasses: passes,\n    }));\n}\n",
+            "to": "export function buildReviewThreads(\n  threads: readonly T.RawReviewThread[]\n): readonly T.ReviewThread[] {\n  return threads\n    .filter((thread) => !thread.resolved)\n    .map(({ id, firstComment }) => ({ id, firstComment }));\n}\n"
+          }
+        ],
+        "scripts/watch-pr/render.ts": [
+          {
+            "from": "    `isBugBot=${thread.isBugbot}`,\n    `bugbotReviewPasses=${thread.bugbotReviewPasses}`,\n",
+            "to": ""
+          },
+          {
+            "from": "function reviewCell(row: T.PrSnapshot): string {\n  if (row.kind !== \"open\") return \"\\u2014\";\n  const open = row.threads.length;\n  return row.reviewAutomationRunning\n    ? open\n      ? `🤖 running, ${open} open`\n      : \"🤖 running\"\n    : open\n      ? `📝 ${open} open`\n      : \"✅\";\n}\n",
+            "to": "function reviewCell(row: T.PrSnapshot): string {\n  if (row.kind !== \"open\") return \"\\u2014\";\n  return row.threads.length ? `📝 ${row.threads.length} open` : \"✅\";\n}\n"
+          }
+        ],
+        "scripts/watch-pr/policy.ts": [
+          {
+            "from": "  \"bugbot\",\n",
+            "to": ""
+          },
+          {
+            "from": "const AUTOMATION_TOKENS = [\n  \"security review\",\n  \"pr review automation\",\n  \"review automation\",\n] as const;\n",
+            "to": ""
+          },
+          {
+            "from": "    reviewAutomationRunning: checks.checks.some(\n      (check) =>\n        check.kind === \"pending\" &&\n        AUTOMATION_TOKENS.some((token) =>\n          check.name.toLowerCase().includes(token)\n        )\n    ),",
+            "to": ""
+          }
+        ],
+        "scripts/watch-pr/github.test.ts": [
+          {
+            "from": "it(\"annotates Bugbot threads with distinct review-pass counts\", () => {\n  const response = {\n    data: {\n      repository: {\n        pullRequest: {\n          reviewThreads: {\n            pageInfo: { hasNextPage: false, endCursor: null },\n            nodes: [\n              {\n                id: \"one\",\n                isResolved: false,\n                comments: {\n                  nodes: [\n                    {\n                      body: \"RUN_ID: run-1\",\n                      createdAt: \"now\",\n                      path: \"a.ts\",\n                      line: 1,\n                      author: { login: \"bugbot\" },\n                    },\n                  ],\n                },\n              },\n              {\n                id: \"two\",\n                isResolved: false,\n                comments: {\n                  nodes: [\n                    {\n                      body: \"CURSOR_AUTOMATION_ID: run-2 severity high\",\n                      createdAt: \"now\",\n                      path: null,\n                      line: null,\n                      author: { login: \"cursor\" },\n                    },\n                  ],\n                },\n              },\n              {\n                id: \"resolved\",\n                isResolved: true,\n                comments: {\n                  nodes: [\n                    {\n                      body: \"RUN_ID: run-3\",\n                      createdAt: \"now\",\n                      path: null,\n                      line: null,\n                      author: { login: \"bugbot\" },\n                    },\n                  ],\n                },\n              },\n            ],\n          },\n        },\n      },\n    },\n  };\n  const threads = buildReviewThreads(parseReviewThreadPage(response).threads);\n  expect(threads).toHaveLength(2);\n  expect(threads.map((thread) => thread.isBugbot)).toEqual([true, true]);\n  expect(threads.map((thread) => thread.bugbotReviewPasses)).toEqual([3, 3]);\n});\n\n",
+            "to": "it(\"keeps unresolved threads from every reviewer\", () => {\n  const comment = (authorLogin: string) => ({\n    authorLogin,\n    body: \"please check this\",\n    createdAt: \"now\",\n    path: \"a.ts\",\n    line: 1,\n  });\n  const threads = buildReviewThreads([\n    { id: \"bot\", firstComment: comment(\"other-bot\"), resolved: false },\n    { id: \"human\", firstComment: comment(\"reviewer\"), resolved: false },\n    { id: \"resolved\", firstComment: comment(\"bugbot\"), resolved: true },\n  ]);\n  expect(threads.map((thread) => thread.id)).toEqual([\"bot\", \"human\"]);\n});\n\n"
+          },
+          {
+            "from": "  it(\"counts Bugbot review passes across every page\", async () => {\n    const bugbot = (id: string, runId: string) => ({\n      id,\n      firstComment: {\n        authorLogin: \"bugbot\",\n        body: `RUN_ID: ${runId}`,\n        path: \"a.ts\",\n        line: 1,\n        createdAt: \"now\",\n      },\n      resolved: false,\n    });\n    const reader = fakeReader({\n      threadPages: [\n        { threads: [bugbot(\"one\", \"run-1\")], endCursor: \"next\" },\n        { threads: [bugbot(\"two\", \"run-2\")], endCursor: null },\n      ],\n    });\n    const threads = await resolveReviewThreads(reader, context);\n    expect(threads.map((item) => item.bugbotReviewPasses)).toEqual([2, 2]);\n  });\n\n",
+            "to": "  it(\"keeps review threads across every page\", async () => {\n    const reader = fakeReader({\n      threadPages: [\n        { threads: [thread(\"one\")], endCursor: \"next\" },\n        { threads: [thread(\"two\")], endCursor: null },\n      ],\n    });\n    const threads = await resolveReviewThreads(reader, context);\n    expect(threads.map((item) => item.id)).toEqual([\"one\", \"two\"]);\n  });\n\n"
+          }
+        ],
+        "playbooks/babysit.md": [
+          {
+            "from": "On GitHub, use the watcher's Bugbot pass count. On Origin, derive the pass count from `origin pr thread list` and the review history. From the third pass on, lean toward dismissing documented patterns, still escalating anything touching security, auth, billing, data, or migrations rather than dismissing it yourself. Never churn code to quiet a bot.",
+            "to": "Assess every review comment against the current code, regardless of its author or review round. Reuse earlier evidence only after checking it against the current head. Escalate findings that touch security, auth, billing, data, or migrations. Never churn code to quiet a bot."
+          }
+        ],
+        "playbooks/eval.md": [
+          {
+            "from": "on different models per the **arena** skill's Phase B",
+            "to": "on confirmed different models when available, or independent seats on the parent model, per **arena** Phase B"
+          },
+          {
+            "from": "on a different model family per the **arena** skill's Phase C",
+            "to": "on a confirmed different family when available, or an independent seat on the parent model, per **arena** Phase C"
           }
         ]
-      }
+      },
+      "body": [
+        {
+          "from": "Bundled skills live at `../<name>/SKILL.md` from this file, so put this file's absolute path in every `poteto-agent` prompt.",
+          "to": "Bundled skills live at `../<name>/SKILL.md` from this file. Give a delegated worker the relevant skill path when needed."
+        },
+        {
+          "from": "not another host PR-monitoring workflow",
+          "to": "not a different PR-monitoring workflow"
+        },
+        {
+          "from": "**Use `worker role: \"poteto-agent\"` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). The chat that receives `poteto-mode` runs the playbook. Never spawn a `poteto-agent` to run the playbook itself. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own `worker role` for diverse-model review. Respect what the skill prescribes, don't override to `poteto-agent`.",
+          "to": "Give delegated workers the playbook step and relevant skill instructions. The current thread runs the playbook. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) define their own delegation needs; follow those instructions."
+        },
+        {
+          "from": "**Defaults for every delegation call.** `run concurrently when supported` (a steer or resume of a running agent too, because a foreground call holds your turn while other reports wait), the least privilege needed for its assigned reads or writes, file pointers not inlined context, explicit model per role (configurable via `setup-pstack`. Defaults `fast-code-model` for code, `judgment-model` for prose and judgment). Code delegates tier by difficulty. The hardest changes (cross-cutting design, gnarly concurrency, subtle algorithms) go to your strongest judgment model (`judgment-model`), whether the task needs judgment on vague intent or is a precisely specified sequence of steps to execute to the letter. Trivial mechanical edits go to your fast code model. Per-role lines in `.pstack/models.md`, which `setup-pstack` writes, override these defaults and the model choices in the routed skills (`how`, `why`, `arena`, `swarm`, `architect`, `interrogate`, `reflect`). A role with no line keeps its default, and a role line of `inherit-parent` or `auto` runs that role on the parent chat model (leave the model unset on the delegation call). Each code playbook's configured model comes from its line (`feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`), and the hardest changes read `hardest tasks`. Prose and judgment read `judgment and prose`.",
+          "to": "**Defaults for every delegation call.** Run workers concurrently when supported, give each only the access its task needs, and provide file pointers and a clear brief. Use `auto` for every role unless `.pstack/models.md` supplies a model ID confirmed available in this session. `auto` and `inherit-parent` mean omit `model`. A role label such as `fast-code-model` or `judgment-model` describes the task; never pass it as an ID. The role lines written by `setup-pstack` may select confirmed models for code, prose, review, and verification."
+        },
+        {
+          "from": "**Match the model to the job.** Before each spawn, start from the role's line or default and pick the reasoning level and speed the job needs. The `setup-pstack` budget sets each role's starting level, xhigh by default. Raise it one step, up to max, for the hardest or subtlest work. Lower it one step for judgment and two or more steps for routine work. Use fast mode only when the job is urgent, meaning CI or trunk is red or a person is blocked on the result right now. Otherwise use standard speed, the same slug without `-fast`. Verification is the exception and stays on the `swarm workers` model and speed (`fast-code-model` by default). Change only the effort level and whether the slug is fast, and keep the family the role names, so a diverse panel stays diverse. If the family has no slug at that level and speed, use its nearest slug. A role on `auto` or `inherit-parent` stays on the parent model. If the host delegation capability rejects the adjusted slug, do not try another adjusted slug. Use the role's line or default and say so. If the host delegation capability rejects that too, continue with the calling skill's fallback. A slug counts as rejected once a delegation operation error says that the model is not valid, or leaves the slug out of its list of valid slugs. Never pass a rejected slug, and skip any fallback whose slug is already rejected. When the calling skill has no fallback, use the closest valid slug of the role's family from the error's list of valid slugs, or omit `model` so the subagent runs on the parent model when the list has none. When the calling skill's fallback runs out of slugs without saying what to do next, omit `model` too. Say so in both cases.",
+          "to": "**Match the model to the job.** Use the host's documented model, effort, and speed controls when available. Do not derive family, effort, or speed from a model ID's spelling. Prefer confirmed family diversity for an independent review when the host provides that metadata. Otherwise use an independent reviewer on an available model or the parent model and report the limit. If a configured model is rejected, omit `model`, continue on the parent model, and say so. Never retry an ID the host rejected."
+        },
+        {
+          "from": "A second opinion is the same prompt against a different model. Agreement is high-signal.",
+          "to": "For a second opinion, give an independent reviewer the same prompt. Use a different confirmed model when available, and disclose when both used the parent model."
+        }
+      ]
     },
     "principle-attack-the-premise": {
       "description": "Question a shared premise after two fixes built on it fail the same check."
@@ -528,6 +646,10 @@
         {
           "from": "read the full conversation record, not just a trimmed local copy.",
           "to": "read the full conversation record when the host exposes one, not a summary."
+        },
+        {
+          "from": "Spawn parallel subagents on a fast, cheap model, each taking a slice of the corpus.",
+          "to": "Spawn parallel subagents, each taking a slice of the corpus. Use a confirmed fast, low-cost model when available; otherwise use the parent model."
         }
       ]
     },
@@ -535,14 +657,54 @@
       "description": "Review conversation evidence for lessons and propose targeted skill improvements.",
       "body": [
         {
-          "from": "hand to Agent Skills authoring workflow and run its draft",
-          "to": "hand it to the Agent Skills authoring workflow and run its draft"
+          "from": "Before fanning out, find this conversation's conversation record in the `<host-conversation-history>/` directory the system prompt names. Do not glob across `<host-project-history-root>/`. That crosses workspace boundaries and reads private chats from unrelated projects.\n\n```bash\nls -t <agent-conversation records>/*.jsonl <agent-conversation records>/*/*.jsonl <agent-conversation records>/*/subagents/*.jsonl 2>/dev/null | head -10\n```\n\nThat covers the legacy flat (`<id>.jsonl`), current nested (`<id>/<id>.jsonl`), and subagent (`<parent>/subagents/<child>.jsonl`) layouts. For each candidate, read the first JSONL line. Take the file whose `message.content[0].text` contains the conversation's opening user prompt. If none matches, pass a tight digest of the session instead.",
+          "to": "Use the current conversation. If the host explicitly exposes a record of this conversation, use only that record. Otherwise pass a short digest of the session to the reviewers."
         },
         {
-          "from": "hand to Agent Skills authoring workflow and run its description",
-          "to": "hand it to the Agent Skills authoring workflow and run its description"
+          "from": "One message, three delegation calls, `worker role: general-purpose`, agent mode (`readonly: false`). Reviewers need MCP access to look up the tickets, chat threads, and observability traces the conversation record references, and readonly strips MCPs.",
+          "to": "Run three independent reviewers when delegation is available. Give them access to the evidence tools needed to check the conversation record. Otherwise apply the three reviewer lenses in sequence."
+        },
+        {
+          "from": "agent mode (`readonly: false`). It spot-verifies citations through MCP, and readonly strips MCPs.",
+          "to": "with access to the evidence tools needed to spot-check citations."
+        },
+        {
+          "from": "Each reviewer and the synthesizer name a role line in `.pstack/models.md` and a default. Set `model` to that line's value, or to the default if `.pstack/models.md` or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the host delegation capability rejects a slug, use the default and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the worker runs on the current model. Use effort and speed controls only when the host exposes them, per the Subagents section of the **poteto-mode** skill.",
+          "to": "Each reviewer and the synthesizer reads its role line in `.pstack/models.md`. Without a configured model ID, omit `model` so the parent model runs the role. Pass an ID only after the host confirms it is available; if rejected, omit it and say so. Use effort and speed controls only when the host exposes them."
+        },
+        {
+          "from": "| Judgment | `reflect judgment, divergent, synthesizer` | `judgment-model` | `references/judgment-reviewer.md` |",
+          "to": "| Judgment | `reflect judgment, divergent, synthesizer` | `auto` | `references/judgment-reviewer.md` |"
+        },
+        {
+          "from": "| Tooling | `reflect tooling` | `fast-code-model` | `references/tooling-reviewer.md` |",
+          "to": "| Tooling | `reflect tooling` | `auto` | `references/tooling-reviewer.md` |"
+        },
+        {
+          "from": "| Divergent | `reflect judgment, divergent, synthesizer` | `judgment-model` | `references/divergent-reviewer.md` |",
+          "to": "| Divergent | `reflect judgment, divergent, synthesizer` | `auto` | `references/divergent-reviewer.md` |"
         }
-      ]
+      ],
+      "files": {
+        "references/divergent-reviewer.md": [
+          {
+            "from": "a the delegation capability prompt naming its path, or a tool call (Shell, Grep, MCP, etc.)",
+            "to": "a delegated-worker prompt naming its path, or a shell, text-search, or connected-tool call"
+          }
+        ],
+        "references/judgment-reviewer.md": [
+          {
+            "from": "a the delegation capability prompt naming its path, or a tool call (Shell, Grep, MCP, etc.)",
+            "to": "a delegated-worker prompt naming its path, or a shell, text-search, or connected-tool call"
+          }
+        ],
+        "references/tooling-reviewer.md": [
+          {
+            "from": "a the delegation capability prompt naming its path, or a tool call (Shell, Grep, MCP, etc.)",
+            "to": "a delegated-worker prompt naming its path, or a shell, text-search, or connected-tool call"
+          }
+        ]
+      }
     },
     "setup-pstack": {
       "body": [
@@ -573,6 +735,34 @@
         {
           "from": "Tell the user the rule was written and that it applies to new sessions.",
           "to": "Tell the user the configuration file was written and that it applies to new sessions."
+        },
+        {
+          "from": "**(a) Ask for a budget.** Prefer the host's user-interaction capability over free text. Offer these four options with these exact labels, and name the current budget when the file records one. With no file, say that every role runs on the parent chat model, so a budget changes only the models the user picks.\n\n- `unlimited — max reasoning`\n- `large — xhigh reasoning`\n- `medium — high reasoning`\n- `small — medium reasoning`\n\n",
+          "to": "**(a) Choose effort only when supported.** If the host exposes a reasoning-effort control, ask the user whether to use its default, a lower level, or a higher level. Show the host's actual choices. Without such a control, keep the host default and do not ask for a budget.\n\n"
+        },
+        {
+          "from": "**(b) Apply it.** Build the working table from the skill defaults, and on a re-run keep any role you changed by family, list, or alias (`inherit-parent`, `auto`). When the host's model identifiers carry an effort level, `unlimited`, `large`, `medium`, and `small` set the effort token of every real slug, panel entries included, to `max`, `xhigh`, `high`, or `medium`. The effort token is the last token, or the one before a trailing `fast`, on the ladder `max` > `xhigh` > `high` > `medium` > `low`. If the result is not a detected slug, use the same family's detected slug with the highest effort at or below the target, else mark the role as needing a choice. `inherit-parent` and `auto` do not change. For example, `unlimited` moves a `<family>-xhigh` slug to `<family>-max` when the host detects that slug. A family whose slugs stop at `xhigh` stays at `xhigh`. `small` moves each real slug to its family's `medium` slug.",
+          "to": "**(b) Apply it.** Keep confirmed model IDs unchanged. Set effort through the host's documented control when it exists; never edit an ID to guess an effort level, speed, or family. `auto` and `inherit-parent` keep the parent model and its default effort. Record the choice in the configuration file only when the host can apply it."
+        },
+        {
+          "from": "**(c) Show the roles and confirm.** Show every role with its model, marking any real slug not in the detected set as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` (both mean that this role runs on the parent chat model) as the options. Prefer the host's user-interaction capability over free text. For panel roles (arena runners, architect runners, interrogate reviewers) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but Arena runs one judge. It tries only values from a family other than the parent's, in list order, so order it by preference. An `inherit-parent` or `auto` value never judges. `swarm workers` is the default model for every worker unless a race or comparison assigns another model per arm.",
+          "to": "**(c) Show the roles and confirm.** Show every role and its configured ID or `auto`. Offer only confirmed available IDs, `auto`, and `inherit-parent`. For panel roles, each entry is one seat. Order the cross-judge pool by preference; prefer a different family only when the host explicitly identifies families. If it does not, an independent judge on the parent model is valid. Drop retired role lines and tell the user which ones changed."
+        },
+        {
+          "from": "Enumerate the model identifiers the host can assign to delegated workers in this session. That is the dependable source. If the host also exposes a models API or CLI that lists the user's entitled models, prefer it for completeness. If you cannot detect any, ask the user to paste the slugs they have access to. Never write a real slug you have not confirmed is available. The aliases `inherit-parent` and `auto` are always valid even though they are not detected slugs.",
+          "to": "Use the host's model inventory if it exposes one. Confirm every explicit model ID before writing it. If no inventory is available, leave roles on `auto`; ask the user for IDs only when they request explicit model choices. Never guess availability or family from an ID's spelling. `auto` and `inherit-parent` always mean use the parent model."
+        },
+        {
+          "from": "Every real slug written must be in the detected set. `inherit-parent` and `auto` always pass. If a chosen real slug is not available, stop and ask again.",
+          "to": "Every explicit model ID must be confirmed available in this session. `auto` and `inherit-parent` always pass. If a chosen ID is unavailable, keep that role on `auto` and report it."
+        },
+        {
+          "from": "# budget: large (xhigh)",
+          "to": "# budget: host default"
+        },
+        {
+          "from": "a `# budget` line with the chosen label and its target effort",
+          "to": "a `# budget` line with the host default or a confirmed effort choice"
         }
       ]
     },
@@ -582,11 +772,21 @@
         {
           "from": "such as its agent id",
           "to": "such as its session or conversation ID"
+        },
+        {
+          "from": "Prefer a reviewer on a different model family for genuinely fresh eyes.",
+          "to": "Prefer a reviewer from a different family when the host confirms that family; otherwise use an independent reviewer on an available model."
         }
       ]
     },
     "swarm": {
-      "description": "Run parallel workers on independent tasks and synthesize their results."
+      "description": "Run parallel workers on independent tasks and synthesize their results.",
+      "body": [
+        {
+          "from": "3. Pick the worker model from the `swarm workers` line in `.pstack/models.md`. If `.pstack/models.md` or that line is missing, use `fast-code-model`. For `auto` or `inherit-parent`, omit `model` so the workers run on the parent model. If the host delegation capability rejects a slug, use the default and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the worker runs on the current model. For a model race, name each arm's model up front. Use effort and speed controls only when the host exposes them, per the Subagents section of the **poteto-mode** skill.",
+          "to": "3. Pick the worker model from the `swarm workers` line in `.pstack/models.md`; without a configured line, use `auto`. Omit `model` for `auto` or `inherit-parent`. Pass a configured model ID only after the host confirms it is available; if it is rejected, omit `model` and say so. For a model race, name each confirmed arm before spawning. Use the host's effort and speed controls only when it exposes them."
+        }
+      ]
     },
     "tdd": {
       "description": "Use a failing test to drive a fix or feature when a practical test boundary is available."
@@ -630,7 +830,7 @@
       "explicit": false,
       "body": [
         {
-          "from": "## Step 3. Spawn Parallel Investigators (default posture)",
+          "from": "## Step 3. Spawn Parallel Investigators",
           "to": "## Step 3. Investigate unresolved questions"
         },
         {
@@ -642,8 +842,16 @@
           "to": "### Choose relevant sources"
         },
         {
-          "from": "Only skip with an **explicit, written justification** that goes in the final \"Sources Consulted\" section. Two valid reasons:\n\n- **No MCP is available for that category** in this environment. Flag this as a gap, not a choice. Example: \"Real-time team chat skipped. No matching MCP available, so the conversational record was not searchable.\"\n- **The source is provably irrelevant**, not just \"probably irrelevant.\" A high bar. Example: \"Error / exception tracking skipped. Target is a build-time script with no runtime code path.\"\n\nIf your scope assessment suggests a single-commit trivial target where the PR description already contains the complete answer, you may answer inline **only after** confirming all seven available category searches would be redundant. Say so explicitly. This should be rare.",
+          "from": "Only with an **explicit, written justification** that goes in the final Sources Consulted. Two valid reasons:\n\n- **No MCP is available for that category** in this environment. Flag it as a gap, not a choice: \"Real-time team chat skipped. No matching MCP available, so the conversational record was not searchable.\"\n- **The source is provably irrelevant**, not just \"probably irrelevant.\" A high bar: \"Error / exception tracking skipped. Target is a build-time script with no runtime code path.\"\n\nIf your scope assessment suggests a single-commit trivial target where the PR description already contains the complete answer, you may answer inline **only after** confirming all seven available category searches would be redundant. Say so explicitly. This should be rare.",
           "to": "Select sources that can resolve the remaining questions. Record meaningful access limits and distinguish sources actually searched from sources not consulted. A broad source inventory is useful for an incident or comprehensive historical audit; it is not required for a narrow decision already explained by a cited record."
+        },
+        {
+          "from": "Every spawn is `general-purpose` with `readonly: false` (agent mode). **Do not use readonly/Ask mode.** It strips MCP access, which disables the MCP-backed investigators and the synthesizer's citation spot-checks. Investigators still shouldn't write anything.",
+          "to": "Give investigators access to the evidence tools they need. They should not write files."
+        },
+        {
+          "from": "Each spawn below names a role line in `.pstack/models.md` and a default. Set `model` to that line's value, or to the default if `.pstack/models.md` or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the host delegation capability rejects a slug, use the default and say so. Resolve a role-label default to a model the host offers. If none fits, leave `model` unset so the worker runs on the current model. Use effort and speed controls only when the host exposes them, per the Subagents section of the **poteto-mode** skill.",
+          "to": "Each investigator and synthesizer reads its role line in `.pstack/models.md`. Without a configured model ID, omit `model` so the parent model runs the role. Pass an ID only after the host confirms it is available; if rejected, omit it and say so. Use effort and speed controls only when the host exposes them."
         }
       ]
     }

@@ -4,7 +4,7 @@ Use this reference when the Babysit playbook (`../playbooks/babysit.md`) handles
 
 ## Decision rubric
 
-Classify each Bugbot thread before acting:
+Classify each automated-review thread before acting:
 
 - `fix`: The comment identifies a plausible correctness, security, privacy, data loss, auth, billing, migration, idempotency, race, or shipped-behavior issue. Fix it in the lowest owning PR, then reply with the commit SHA and resolve the thread.
 - `dismiss`: The comment matches a documented low-risk noisy pattern, and the current code/context proves the concern does not need a code change. Reply with a short reason and resolve the thread.

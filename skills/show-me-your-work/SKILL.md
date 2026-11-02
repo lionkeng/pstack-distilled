@@ -77,7 +77,7 @@ Correct the log, not the story. The audit never edits or removes a row, even an 
 
 ## Cross-model review of the trail
 
-Before handing back, seek an independent review of the audit trail and conversation record when the host supports delegation. Prefer a reviewer on a different model family for genuinely fresh eyes. When independent review is unavailable, perform the same structured risk scan inline and disclose that it was self-review. This is not a redo of the work; it flags what the user should scrutinize.
+Before handing back, seek an independent review of the audit trail and conversation record when the host supports delegation. Prefer a reviewer from a different family when the host confirms that family; otherwise use an independent reviewer on an available model. When independent review is unavailable, perform the same structured risk scan inline and disclose that it was self-review. This is not a redo of the work; it flags what the user should scrutinize. Use effort and speed controls only when the host exposes them, per the Subagents section of the **poteto-mode** skill.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the conversation record.
