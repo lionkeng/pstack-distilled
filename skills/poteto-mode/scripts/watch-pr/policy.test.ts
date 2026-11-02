@@ -194,7 +194,7 @@ it("attributes a stack wait to the PR whose checks are pending, not the bottom",
   expect(decision).toMatchObject({
     kind: "waiting",
     frontier: { number: 21 },
-    pending: [{ name: "upstack-build" }],
+    reason: { kind: "pending-checks", pending: [{ name: "upstack-build" }] },
   });
 });
 

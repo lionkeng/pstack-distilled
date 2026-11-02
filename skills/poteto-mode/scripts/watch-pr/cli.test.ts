@@ -110,7 +110,7 @@ describe("rendering", () => {
     number: parsePrNumber(1),
   };
   const status = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sequence: 1,
     observedAt: "2026-07-26T00:00:00.000Z",
     mode: "single",

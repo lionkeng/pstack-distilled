@@ -502,6 +502,34 @@
           {
             "from": "      readonly reviewAutomationRunning: boolean;\n",
             "to": ""
+          },
+          {
+            "from": "  | \"changes-requested\";",
+            "to": "  | \"changes-requested\"\n  | \"base-behind\";"
+          },
+          {
+            "from": " * `pending` is that PR's checks only. Pooling every row's pending under the\n * bottom PR's number misattributed upstack waits to the frontier.",
+            "to": " * a pending-checks reason contains that PR's checks only. Each reason\n * stays attached to the PR whose state caused the wait."
+          },
+          {
+            "from": "export interface WaitingDecision {\n  readonly kind: \"waiting\";\n  readonly frontier: PrContext;\n  readonly pending: NonEmpty<PendingCheck>;\n}",
+            "to": "export interface WaitingDecision {\n  readonly kind: \"waiting\";\n  readonly frontier: PrContext;\n  readonly reason: WaitReason;\n}"
+          },
+          {
+            "from": "  readonly schemaVersion: 1;",
+            "to": "  readonly schemaVersion: 2;"
+          },
+          {
+            "from": "      readonly reason:\n        | {\n            readonly kind: \"pending-checks\";\n            readonly pending: NonEmpty<PendingCheck>;\n          }\n        | { readonly kind: \"merge-queue\"; readonly unmergedCount: number };",
+            "to": "      readonly reason:\n        | WaitReason\n        | { readonly kind: \"merge-queue\"; readonly unmergedCount: number };"
+          },
+          {
+            "from": "    | { readonly kind: \"status-unavailable\"; readonly failure: QueryFailure }",
+            "to": "    | { readonly kind: \"mergeability-unknown\"; readonly frontier: PrContext }\n    | { readonly kind: \"status-unavailable\"; readonly failure: QueryFailure }"
+          },
+          {
+            "from": "/**\n * `frontier` names the lowest unmerged PR that is actually waiting, and",
+            "to": "export type WaitReason =\n  | { readonly kind: \"pending-checks\"; readonly pending: NonEmpty<PendingCheck> }\n  | { readonly kind: \"mergeability-unknown\" };\n/**\n * `frontier` names the lowest unmerged PR that is actually waiting, and"
           }
         ],
         "scripts/watch-pr/github.ts": [
@@ -522,6 +550,22 @@
           {
             "from": "function reviewCell(row: T.PrSnapshot): string {\n  if (row.kind !== \"open\") return \"\\u2014\";\n  const open = row.threads.length;\n  return row.reviewAutomationRunning\n    ? open\n      ? `🤖 running, ${open} open`\n      : \"🤖 running\"\n    : open\n      ? `📝 ${open} open`\n      : \"✅\";\n}\n",
             "to": "function reviewCell(row: T.PrSnapshot): string {\n  if (row.kind !== \"open\") return \"\\u2014\";\n  return row.threads.length ? `📝 ${row.threads.length} open` : \"✅\";\n}\n"
+          },
+          {
+            "from": "  return row.facts.mergeable === \"CONFLICTING\" ||\n    row.facts.mergeStateStatus === \"DIRTY\" ||\n    row.facts.mergeStateStatus === \"CONFLICTING\"\n    ? \"⚠️ conflict\"\n    : \"✅\";",
+            "to": "  if (row.facts.mergeable === \"CONFLICTING\" ||\n    row.facts.mergeStateStatus === \"DIRTY\" ||\n    row.facts.mergeStateStatus === \"CONFLICTING\") return \"⚠️ conflict\";\n  if (row.facts.mergeStateStatus === \"BEHIND\") return \"⚠️ base behind\";\n  if (row.facts.mergeable === \"UNKNOWN\" || row.facts.mergeStateStatus === \"UNKNOWN\")\n    return \"mergeability unknown\";\n  return \"✅\";"
+          },
+          {
+            "from": "            : \"resolve the changes-requested review before waiting for the merge queue\";",
+            "to": "            : blocker.reason === \"base-behind\"\n              ? \"update the branch with its base and rerun checks\"\n              : \"resolve the changes-requested review before waiting for the merge queue\";"
+          },
+          {
+            "from": "        : `WAITING: frontier=#${verdict.frontier.number} is blocker-free; waiting for merge queue (${verdict.reason.unmergedCount} PR${verdict.reason.unmergedCount === 1 ? \"\" : \"s\"} unmerged)\\n`;",
+            "to": "        : verdict.reason.kind === \"mergeability-unknown\"\n          ? `WAITING: frontier=#${verdict.frontier.number}; mergeability is unknown\\n`\n          : `WAITING: frontier=#${verdict.frontier.number} is blocker-free; waiting for merge queue (${verdict.reason.unmergedCount} PR${verdict.reason.unmergedCount === 1 ? \"\" : \"s\"} unmerged)\\n`;"
+          },
+          {
+            "from": "      if (verdict.reason.kind === \"status-unavailable\")",
+            "to": "      if (verdict.reason.kind === \"mergeability-unknown\")\n        return `TIMEOUT: mergeability remains unknown; frontier=#${verdict.reason.frontier.number}\\n`;\n      if (verdict.reason.kind === \"status-unavailable\")"
           }
         ],
         "scripts/watch-pr/policy.ts": [
@@ -536,6 +580,58 @@
           {
             "from": "    reviewAutomationRunning: checks.checks.some(\n      (check) =>\n        check.kind === \"pending\" &&\n        AUTOMATION_TOKENS.some((token) =>\n          check.name.toLowerCase().includes(token)\n        )\n    ),",
             "to": ""
+          },
+          {
+            "from": "  if (row.facts.isDraft && !allowDraft) return \"draft-pr\";\n  return row.facts.reviewDecision === \"CHANGES_REQUESTED\"\n    ? \"changes-requested\"\n    : null;",
+            "to": "  if (row.facts.isDraft && !allowDraft) return \"draft-pr\";\n  if (row.facts.reviewDecision === \"CHANGES_REQUESTED\") return \"changes-requested\";\n  return row.facts.mergeStateStatus === \"BEHIND\" ? \"base-behind\" : null;"
+          },
+          {
+            "from": "    row.ci.kind !== \"ci-clean\" ||\n    row.threads.length !== 0 ||",
+            "to": "    row.ci.kind !== \"ci-clean\" ||\n    row.facts.mergeable !== \"MERGEABLE\" ||\n    row.facts.mergeStateStatus === \"UNKNOWN\" ||\n    row.threads.length !== 0 ||"
+          },
+          {
+            "from": "export function classifyPr(\n",
+            "to": "function waitingDecision(row: T.PrSnapshot): T.WaitingDecision | null {\n  if (row.kind !== \"open\") return null;\n  if (row.ci.kind === \"ci-pending\")\n    return {\n      kind: \"waiting\",\n      frontier: row.context,\n      reason: { kind: \"pending-checks\", pending: row.ci.pending },\n    };\n  if (row.facts.mergeable === \"UNKNOWN\" || row.facts.mergeStateStatus === \"UNKNOWN\")\n    return {\n      kind: \"waiting\",\n      frontier: row.context,\n      reason: { kind: \"mergeability-unknown\" },\n    };\n  return null;\n}\nexport function classifyPr(\n"
+          },
+          {
+            "from": "  if (row.kind === \"open\" && row.ci.kind === \"ci-pending\")\n    return { kind: \"waiting\", frontier: row.context, pending: row.ci.pending };\n",
+            "to": "  const waiting = waitingDecision(row);\n  if (waiting !== null) return waiting;\n"
+          },
+          {
+            "from": "  for (const row of rows)\n    if (row.kind === \"open\" && row.ci.kind === \"ci-pending\")\n      return {\n        kind: \"waiting\",\n        frontier: row.context,\n        pending: row.ci.pending,\n      };\n",
+            "to": "  for (const row of rows) {\n    const waiting = waitingDecision(row);\n    if (waiting !== null) return waiting;\n  }\n"
+          },
+          {
+            "from": "  readonly schemaVersion: 1;",
+            "to": "  readonly schemaVersion: 2;"
+          },
+          {
+            "from": "      schemaVersion: 1,",
+            "to": "      schemaVersion: 2,"
+          },
+          {
+            "from": "        frontier: decision.frontier,\n        reason: { kind: \"pending-checks\", pending: decision.pending },",
+            "to": "        frontier: decision.frontier,\n        reason: decision.reason,"
+          },
+          {
+            "from": "          exitCode: 5,\n          reason: { kind: \"pending-checks\", pending: decision.pending },",
+            "to": "          exitCode: 5,\n          reason: decision.reason.kind === \"mergeability-unknown\"\n            ? { ...decision.reason, frontier: decision.frontier }\n            : decision.reason,"
+          },
+          {
+            "from": "      readonly kind: \"timeout\";\n      readonly state: QueueState;\n      readonly frontier: T.PrContext;\n      readonly unmergedCount: number;",
+            "to": "      readonly kind: \"timeout\";\n      readonly state: QueueState;\n      readonly reason: T.TimeoutVerdict[\"reason\"];"
+          },
+          {
+            "from": "      readonly reason:\n        | {\n            readonly kind: \"pending-checks\";\n            readonly pending: T.NonEmpty<T.PendingCheck>;\n          }\n        | { readonly kind: \"merge-queue\"; readonly unmergedCount: number };",
+            "to": "      readonly reason:\n        | T.WaitReason\n        | { readonly kind: \"merge-queue\"; readonly unmergedCount: number };"
+          },
+          {
+            "from": "  if (deadlinePassed(state.startedAt, options, now))\n    return {\n      kind: \"timeout\",\n      state: { ...state, frontier },\n      frontier,\n      unmergedCount: active.length,\n    };\n  const row = rows[0];\n  const pending =\n    row.kind === \"open\" && row.ci.kind === \"ci-pending\" ? row.ci.pending : null;\n  const reason =\n    pending === null\n      ? ({ kind: \"merge-queue\", unmergedCount: active.length } as const)\n      : ({ kind: \"pending-checks\", pending } as const);\n  const key =\n    reason.kind === \"pending-checks\"\n      ? `pending:${frontier.number}:${reason.pending.length}`\n      : `queue:${frontier.number}:${reason.unmergedCount}`;",
+            "to": "  const waiting = waitingDecision(rows[0]);\n  if (deadlinePassed(state.startedAt, options, now))\n    return {\n      kind: \"timeout\",\n      state: { ...state, frontier },\n      reason: waiting?.reason.kind === \"mergeability-unknown\"\n        ? { kind: \"mergeability-unknown\", frontier }\n        : { kind: \"queued-stack\", frontier, unmergedCount: active.length },\n    };\n  const reason = waiting?.reason ?? { kind: \"merge-queue\", unmergedCount: active.length } as const;\n  const key =\n    reason.kind === \"pending-checks\"\n      ? `pending:${frontier.number}:${reason.pending.length}`\n      : reason.kind === \"mergeability-unknown\"\n        ? `mergeability:${frontier.number}`\n        : `queue:${frontier.number}:${reason.unmergedCount}`;"
+          },
+          {
+            "from": "            reason: {\n              kind: \"queued-stack\",\n              frontier: evaluation.frontier,\n              unmergedCount: evaluation.unmergedCount,\n            },",
+            "to": "            reason: evaluation.reason,"
           }
         ],
         "scripts/watch-pr/github.test.ts": [
@@ -596,6 +692,24 @@
           {
             "from": "size=$(du -sh \"$wt\" 2>/dev/null | awk '{print $1}')",
             "to": "size=$(du -sh \"$wt\" 2>/dev/null | awk 'NR == 1 {print $1; exit}')"
+          }
+        ],
+        "scripts/watch-pr/policy.test.ts": [
+          {
+            "from": "    pending: [{ name: \"upstack-build\" }],",
+            "to": "    reason: { kind: \"pending-checks\", pending: [{ name: \"upstack-build\" }] },"
+          }
+        ],
+        "scripts/watch-pr/types.compile.ts": [
+          {
+            "from": "  schemaVersion: 1,",
+            "to": "  schemaVersion: 2,"
+          }
+        ],
+        "scripts/watch-pr/cli.test.ts": [
+          {
+            "from": "    schemaVersion: 1,",
+            "to": "    schemaVersion: 2,"
           }
         ]
       },
